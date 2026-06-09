@@ -17,6 +17,8 @@ local render_ns = vim.api.nvim_create_namespace("chroma_render")
 
 local M = {}
 
+local CHANNEL_LABEL_WIDTH = 11
+
 -- ── Line building helpers ────────────────────────────────────────────────────
 
 ---Append a composed line to the lines + hls arrays.
@@ -46,6 +48,20 @@ local function parts_width(parts)
 		width = width + vim.api.nvim_strwidth(part[1] or "")
 	end
 	return width
+end
+
+---Build a channel label with its shortcut key highlighted.
+---@param label string
+---@param selected boolean
+---@return table[]
+local function channel_label_parts(label, selected)
+	local shortcut = label:sub(1, 1)
+	local rest = label:sub(2)
+	local padding = string.rep(" ", math.max(0, CHANNEL_LABEL_WIDTH - vim.api.nvim_strwidth(label)))
+	return {
+		{ shortcut, "ChromaFooterKey" },
+		{ rest .. padding, selected and "ChromaActive" or "ChromaSelectorTitle" },
+	}
 end
 
 ---Add a line with left-aligned and right-aligned part groups.
@@ -256,12 +272,11 @@ local function build_model(state)
 		local parts = {
 			{ "  " },
 			{ selected and "▸ " or "  ", selected and "ChromaAccent" or "ChromaMuted" },
-			{
-				align(def.label, 11),
-				selected and "ChromaActive" or "ChromaSelectorTitle",
-			},
-			{ "  " },
 		}
+		vim.list_extend(parts, channel_label_parts(def.label, selected))
+		vim.list_extend(parts, {
+			{ "  " },
+		})
 		vim.list_extend(parts, slider_parts(def, value, geo.CHANNEL_SLIDER_WIDTH, state.color))
 		vim.list_extend(parts, {
 			{ "  " },
