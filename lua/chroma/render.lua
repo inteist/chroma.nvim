@@ -96,7 +96,10 @@ end
 ---@return table[]
 local function color_field_parts(state, row)
 	local parts = {}
-	local position = geo.color_field_position(state.color)
+	local position = {
+		x = state.field_x or geo.color_field_position(state.color).x,
+		y = state.field_y or geo.color_field_position(state.color).y,
+	}
 	for x = 1, geo.COLOR_FIELD_WIDTH do
 		local active = x == position.x and row == position.y
 		parts[#parts + 1] = {
@@ -206,7 +209,10 @@ local function build_model(state)
 	add_line(lines, hls, { { "" } })
 
 	state.field_cursor = nil
-	local field_position = geo.color_field_position(state.color)
+	local field_position = {
+		x = state.field_x or geo.color_field_position(state.color).x,
+		y = state.field_y or geo.color_field_position(state.color).y,
+	}
 	add_line(lines, hls, {
 		{ "  " },
 		{

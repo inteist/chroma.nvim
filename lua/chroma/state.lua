@@ -197,6 +197,8 @@ end
 ---@field channel_index number
 ---@field field_active boolean
 ---@field field_cursor table?
+---@field field_x number
+---@field field_y number
 ---@field hue number
 ---@field changed boolean
 ---@field closed boolean
@@ -215,6 +217,7 @@ function State.new(opts)
 	initial = initial or color.parse(config.default_color)
 
 	local initial_hsv = color.to_hsv(initial)
+	local initial_field = geo.color_field_position(initial)
 	local self = setmetatable({
 		color = color.normalize(initial),
 		format = fmt or config.default_format,
@@ -225,6 +228,8 @@ function State.new(opts)
 		channel_index = 1,
 		field_active = true,
 		field_cursor = nil,
+		field_x = initial_field.x,
+		field_y = initial_field.y,
 		hue = initial_hsv.h,
 		changed = false,
 		closed = false,
@@ -258,6 +263,17 @@ function State:sync_hue_from_color()
 	if hsv.s > 0 and hsv.v > 0 then
 		self.hue = hsv.h
 	end
+end
+
+---Re-derive the color field cursor from the current RGB color.
+---
+---The field cursor is tracked independently from RGB so low-value rows keep
+---their saturation position even when multiple grid cells quantize to the same
+---RGB value.
+function State:sync_field_from_color()
+	local position = geo.color_field_position(self.color)
+	self.field_x = position.x
+	self.field_y = position.y
 end
 
 -- ── Control navigation ───────────────────────────────────────────────────────
@@ -312,12 +328,15 @@ end
 ---@param dy? number
 ---@param large? boolean
 function State:move_field(dx, dy, large)
-	local position = geo.color_field_position(self.color)
 	local step = large and 3 or 1
-	local x = math.max(1, math.min(geo.COLOR_FIELD_WIDTH, position.x + (dx or 0) * step))
-	local y = math.max(1, math.min(geo.COLOR_FIELD_HEIGHT, position.y + (dy or 0) * step))
+	local x = math.max(1, math.min(geo.COLOR_FIELD_WIDTH, (self.field_x or 1) + (dx or 0) * step))
+	local y = math.max(1, math.min(geo.COLOR_FIELD_HEIGHT, (self.field_y or 1) + (dy or 0) * step))
 	self.field_active = true
-	self:set_color(geo.color_field_color(self.hue, x, y, self.color.a), nil, { hue = self.hue })
+	self:set_color(
+		geo.color_field_color(self.hue, x, y, self.color.a),
+		nil,
+		{ hue = self.hue, field_x = x, field_y = y }
+	)
 end
 
 ---Handle vertical movement: field navigation or channel stepping.
@@ -325,8 +344,7 @@ end
 ---@param large? boolean
 function State:adjust_vertical(direction, large)
 	if self.field_active then
-		local position = geo.color_field_position(self.color)
-		if direction > 0 and position.y == geo.COLOR_FIELD_HEIGHT then
+		if direction > 0 and (self.field_y or 1) == geo.COLOR_FIELD_HEIGHT then
 			self.field_active = false
 			self.channel_index = 1
 			self:render()
@@ -353,8 +371,11 @@ function State:adjust(direction, large)
 	end
 	if def.key == "h" then
 		local hue = geo.discrete_hue(self.hue, direction, large)
-		local hsv = color.to_hsv(self.color)
-		self:set_color(color.from_hsv(hue, hsv.s, hsv.v, self.color.a), nil, { hue = hue })
+		self:set_color(
+			geo.color_field_color(hue, self.field_x or 1, self.field_y or 1, self.color.a),
+			nil,
+			{ hue = hue, field_x = self.field_x, field_y = self.field_y }
+		)
 		return
 	end
 	local step = large and def.large_step or def.step
@@ -364,7 +385,7 @@ end
 ---Set the color to a new value, optionally overriding the format and hue.
 ---@param value string|DotconfigColor
 ---@param fmt? string
----@param opts? { hue?: number }
+---@param opts? { hue?: number, field_x?: number, field_y?: number }
 function State:set_color(value, fmt, opts)
 	opts = opts or {}
 	local parsed = type(value) == "table" and color.normalize(value) or color.parse(value)
@@ -377,6 +398,12 @@ function State:set_color(value, fmt, opts)
 		self.hue = (((opts.hue % 360) + 360) % 360)
 	else
 		self:sync_hue_from_color()
+	end
+	if opts.field_x and opts.field_y then
+		self.field_x = math.max(1, math.min(geo.COLOR_FIELD_WIDTH, opts.field_x))
+		self.field_y = math.max(1, math.min(geo.COLOR_FIELD_HEIGHT, opts.field_y))
+	else
+		self:sync_field_from_color()
 	end
 	if fmt then
 		self.format = fmt

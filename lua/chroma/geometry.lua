@@ -17,12 +17,12 @@ M.HUE_SEGMENT_WIDTH = 1
 M.HUE_SECTION_COUNT = 60
 M.CHANNEL_SLIDER_WIDTH = M.HUE_SEGMENT_WIDTH * M.HUE_SECTION_COUNT
 M.COLOR_FIELD_WIDTH = M.CHANNEL_SLIDER_WIDTH
-M.COLOR_FIELD_HEIGHT = 9
+M.COLOR_FIELD_HEIGHT = 12
 
 ---Layout constants used by the rendering module.
-M.LAYOUT_WIDTH = 84
-M.PREVIEW_WIDTH = 30
-M.PICKER_HEIGHT = 34
+M.LAYOUT_WIDTH = 90
+M.PREVIEW_WIDTH = 24
+M.PICKER_HEIGHT = M.COLOR_FIELD_HEIGHT + 24
 M.PALETTE_WIDTH = 82
 
 ---Pre-computed hue section boundaries for the discrete hue slider.
@@ -115,7 +115,9 @@ end
 ---@param amount number 0..1
 ---@param key string `"r"`, `"g"`, or `"b"`.
 ---@return number
-function M.blend_channel(fg, bg, amount, key) return math.floor(bg[key] + (fg[key] - bg[key]) * amount + 0.5) end
+function M.blend_channel(fg, bg, amount, key)
+	return math.floor(bg[key] + (fg[key] - bg[key]) * amount + 0.5)
+end
 
 ---Return the slider background color derived from the active theme.
 ---@return DotconfigColor
