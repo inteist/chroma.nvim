@@ -167,6 +167,58 @@ test("palette manager opens with the built-in window helper", function()
 	pcall(vim.api.nvim_win_close, palette_win, true)
 end)
 
+test("palette store supports moving colors between palettes", function()
+	local store = require("chroma.store")
+	store.setup({ path = vim.fn.tempname() })
+	local entry = store.add_to_palette("SourcePalette", "#112233", "TestColor")
+
+	local items = store.items()
+	local item_to_move
+	for _, item in ipairs(items) do
+		if item.hex == "#112233" then
+			item_to_move = item
+			break
+		end
+	end
+	assert_true(item_to_move ~= nil, "item should be found in store")
+
+	local success = store.move_to_palette(item_to_move, "DestPalette")
+	assert_true(success, "should successfully move color to new palette")
+
+	local updated_items = store.items()
+	local moved_item
+	for _, item in ipairs(updated_items) do
+		if item.hex == "#112233" then
+			moved_item = item
+			break
+		end
+	end
+	assert_eq("DestPalette", moved_item.palette, "should be in DestPalette")
+end)
+
+test("palette buffer uses read-only mode and cursorline highlight", function()
+	local store = require("chroma.store")
+	store.setup({ path = vim.fn.tempname() })
+	store.add_to_palette("Test", "#ff00ff", "Pink")
+
+	require("chroma.palette").open()
+	local palette_win, palette_buf
+	for _, candidate in ipairs(vim.api.nvim_list_wins()) do
+		local buf = vim.api.nvim_win_get_buf(candidate)
+		if vim.bo[buf].filetype == "chroma_palette" then
+			palette_win, palette_buf = candidate, buf
+			break
+		end
+	end
+
+	assert_true(valid_win(palette_win), "palette window should open")
+	assert_true(valid_buf(palette_buf), "palette buffer should open")
+	assert_false(vim.bo[palette_buf].modifiable, "palette buffer should be read-only")
+	assert_true(vim.wo[palette_win].cursorline, "palette window should have cursorline enabled")
+
+	pcall(vim.api.nvim_win_close, palette_win, true)
+end)
+
 test("chroma opens without an external UI module", function()
 	local dependency = "sn" .. "acks"
 	local global_name = dependency:sub(1, 1):upper() .. dependency:sub(2)

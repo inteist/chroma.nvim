@@ -54,11 +54,11 @@ local function palette_line(item)
 	local parsed = color.parse(item.hex)
 	local hex = parsed and color.to_hex(parsed, parsed.a < 1) or item.hex
 	local swatch = "██"
-	local before_palette = "  " .. swatch .. "  "
+	local before_palette = "  " .. swatch .. " │ "
 	local palette_text = align(item.palette, 18)
-	local before_hex = before_palette .. palette_text .. "  "
+	local before_hex = before_palette .. palette_text .. " │ "
 	local hex_text = align(hex, 10)
-	local prefix = before_hex .. hex_text .. "  "
+	local prefix = before_hex .. hex_text .. " │ "
 
 	return {
 		line = prefix .. (item.label or ""),
@@ -70,6 +70,12 @@ local function palette_line(item)
 		palette_end = #before_palette + #palette_text,
 		hex_start = #before_hex,
 		hex_end = #before_hex + #hex_text,
+		div1_start = #before_palette - 4,
+		div1_end = #before_palette - 1,
+		div2_start = #before_hex - 4,
+		div2_end = #before_hex - 1,
+		div3_start = #prefix - 4,
+		div3_end = #prefix - 1,
 	}
 end
 
@@ -82,14 +88,137 @@ local function palette_footer()
 		{ " use ", "ChromaFooterDesc" },
 		{ " y ", "ChromaFooterKey" },
 		{ " copy ", "ChromaFooterDesc" },
-		{ " D ", "ChromaFooterKey" },
+		{ " r ", "ChromaFooterKey" },
+		{ " rename ", "ChromaFooterDesc" },
+		{ " p ", "ChromaFooterKey" },
+		{ " move ", "ChromaFooterDesc" },
+		{ " dd ", "ChromaFooterKey" },
 		{ " delete ", "ChromaFooterDesc" },
-		{ " :w ", "ChromaFooterKey" },
-		{ " save labels ", "ChromaFooterDesc" },
 		{ " q ", "ChromaFooterKey" },
 		{ " close ", "ChromaFooterDesc" },
 		{ " ", "ChromaFooter" },
 	}
+end
+
+-- ── Floating Input Prompt ───────────────────────────────────────────────────
+
+---Open a sleek, 1-line floating input window styled like the plugin window.
+---@param opts { prompt?: string, default?: string }
+---@param on_confirm fun(value?: string)
+local function input_prompt(opts, on_confirm)
+	opts = opts or {}
+	local win
+	win = window.new({
+		width = 40,
+		height = 1,
+		title = " " .. (opts.prompt or "Input") .. " ",
+		title_pos = "center",
+		border = "rounded",
+		text = { opts.default or "" },
+		backdrop = false,
+		zindex = 95,
+		keys = {
+			["<cr>"] = {
+				function(current)
+					local val = vim.api.nvim_buf_get_lines(current.buf, 0, 1, false)[1] or ""
+					current:close()
+					vim.cmd("stopinsert")
+					on_confirm(val)
+				end,
+				desc = "Confirm",
+			},
+			["<esc>"] = {
+				function(current)
+					current:close()
+					vim.cmd("stopinsert")
+					on_confirm(nil)
+				end,
+				desc = "Cancel",
+			},
+			q = {
+				function(current)
+					current:close()
+					vim.cmd("stopinsert")
+					on_confirm(nil)
+				end,
+				desc = "Cancel",
+			},
+		},
+		bo = {
+			buftype = "",
+			bufhidden = "wipe",
+			swapfile = false,
+			modifiable = true,
+		},
+		on_buf = function(current)
+			vim.keymap.set("i", "<cr>", function()
+				local val = vim.api.nvim_buf_get_lines(current.buf, 0, 1, false)[1] or ""
+				current:close()
+				vim.cmd("stopinsert")
+				on_confirm(val)
+			end, { buffer = current.buf, silent = true })
+
+			vim.keymap.set("i", "<esc>", function()
+				current:close()
+				vim.cmd("stopinsert")
+				on_confirm(nil)
+			end, { buffer = current.buf, silent = true })
+		end,
+		on_win = function(current)
+			vim.api.nvim_win_set_cursor(current.win, { 1, #(opts.default or "") })
+			vim.cmd("startinsert!")
+		end,
+	})
+end
+
+-- ── Palette actions ──────────────────────────────────────────────────────────
+
+---@param win ChromaWindow
+local function palette_rename(win)
+	local item = palette_current_item(win)
+	if not item then
+		notify("Move the cursor to a color row", "warn")
+		return
+	end
+
+	local cursor_lnum = vim.api.nvim_win_get_cursor(win.win)[1]
+
+	input_prompt({
+		prompt = "Rename label",
+		default = item.label or "",
+	}, function(new_label)
+		if not new_label then
+			return
+		end
+		if store.rename(item, new_label) then
+			notify("Updated label: " .. (new_label ~= "" and new_label or "[empty]"))
+			palette_render(win, palette_buffers[win.buf].opts, cursor_lnum)
+		end
+	end)
+end
+
+---@param win ChromaWindow
+local function palette_move(win)
+	local item = palette_current_item(win)
+	if not item then
+		notify("Move the cursor to a color row", "warn")
+		return
+	end
+
+	local cursor_lnum = vim.api.nvim_win_get_cursor(win.win)[1]
+
+	input_prompt({
+		prompt = "Move to palette",
+		default = item.scope == "recent" and "Custom" or item.palette,
+	}, function(new_palette)
+		if not new_palette or vim.trim(new_palette) == "" then
+			return
+		end
+		if store.move_to_palette(item, new_palette) then
+			notify("Moved to palette: " .. new_palette)
+			palette_render(win, palette_buffers[win.buf].opts, cursor_lnum)
+		end
+	end)
 end
 
 -- ── Buffer rendering ─────────────────────────────────────────────────────────
@@ -110,10 +239,19 @@ local function palette_render(win, opts, cursor_lnum)
 	end
 
 	local title = opts.recents_only and "Recent Colors" or "Color Palettes"
-	local header = "      " .. align("Palette", 18) .. "  " .. align("Hex", 10) .. "  Label"
+	local h_prefix1 = "     │ "
+	local h_prefix2 = h_prefix1 .. align("Palette", 18) .. " │ "
+	local h_prefix3 = h_prefix2 .. align("Hex", 10) .. " │ "
+	local header = h_prefix3 .. "Label"
 	local lines = { header, "" }
 	local hls = {
-		{ row = 0, start_col = 6, end_col = #header, hl = "ChromaTitle" },
+		{ row = 0, start_col = 0, end_col = #header, hl = "ChromaNormal" },
+		{ row = 0, start_col = #h_prefix1 - 4, end_col = #h_prefix1 - 1, hl = "ChromaBorder" },
+		{ row = 0, start_col = #h_prefix2 - 4, end_col = #h_prefix2 - 1, hl = "ChromaBorder" },
+		{ row = 0, start_col = #h_prefix3 - 4, end_col = #h_prefix3 - 1, hl = "ChromaBorder" },
+		{ row = 0, start_col = #h_prefix1, end_col = #h_prefix2 - 4, hl = "ChromaSelectorTitle" },
+		{ row = 0, start_col = #h_prefix2, end_col = #h_prefix3 - 4, hl = "ChromaSelectorTitle" },
+		{ row = 0, start_col = #h_prefix3, end_col = #header, hl = "ChromaSelectorTitle" },
 	}
 	local pending = {}
 
@@ -134,6 +272,24 @@ local function palette_render(win, opts, cursor_lnum)
 			hl = item.scope == "recent" and "ChromaAccent" or "ChromaTitle",
 		}
 		hls[#hls + 1] = { row = row, start_col = rendered.hex_start, end_col = rendered.hex_end, hl = "ChromaValue" }
+		hls[#hls + 1] = {
+			row = row,
+			start_col = rendered.div1_start,
+			end_col = rendered.div1_end,
+			hl = "ChromaBorder",
+		}
+		hls[#hls + 1] = {
+			row = row,
+			start_col = rendered.div2_start,
+			end_col = rendered.div2_end,
+			hl = "ChromaBorder",
+		}
+		hls[#hls + 1] = {
+			row = row,
+			start_col = rendered.div3_start,
+			end_col = rendered.div3_end,
+			hl = "ChromaBorder",
+		}
 		if item.label and item.label ~= "" then
 			hls[#hls + 1] = { row = row, start_col = #rendered.prefix, end_col = #rendered.line, hl = "ChromaMuted" }
 		end
@@ -169,50 +325,11 @@ local function palette_render(win, opts, cursor_lnum)
 	end
 	palette_buffers[buf] = model
 	vim.bo[buf].modified = false
+	vim.bo[buf].modifiable = false
 
 	if win.win and vim.api.nvim_win_is_valid(win.win) then
 		local lnum = math.min(math.max(cursor_lnum or model.first_lnum, model.first_lnum), #lines)
 		vim.api.nvim_win_set_cursor(win.win, { lnum, model.first_label_start })
-	end
-	return true
-end
-
--- ── Buffer save ──────────────────────────────────────────────────────────────
-
----Persist label edits from the palette buffer back to the store.
----@param buf number
----@param quiet? boolean
----@return boolean
-local function palette_save_buffer(buf, quiet)
-	local model = palette_buffers[buf]
-	if not (model and vim.api.nvim_buf_is_valid(buf)) then
-		return false
-	end
-
-	local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-	local changed = 0
-	for mark, meta in pairs(model.rows) do
-		local pos = vim.api.nvim_buf_get_extmark_by_id(buf, palette_ns, mark, {})
-		local row = pos and pos[1]
-		local line = row and lines[row + 1]
-		if line and line:find(meta.hex, 1, true) then
-			local label = vim.trim(line:sub(meta.label_start + 1))
-			if label ~= (meta.item.label or "") and store.rename(meta.item, label) then
-				meta.item.label = label ~= "" and label or nil
-				changed = changed + 1
-			end
-		end
-	end
-	vim.bo[buf].modified = false
-
-	if not quiet then
-		if changed == 0 then
-			notify("No palette label changes")
-		elseif changed == 1 then
-			notify("Saved 1 palette label")
-		else
-			notify(("Saved %d palette labels"):format(changed))
-		end
 	end
 	return true
 end
@@ -243,10 +360,6 @@ end
 
 ---@param win ChromaWindow
 local function palette_close(win)
-	if win.buf and vim.api.nvim_buf_is_valid(win.buf) and vim.bo[win.buf].modified then
-		notify("Use :w to save palette label changes or :q! to discard", "warn")
-		return
-	end
 	win:close()
 end
 
@@ -257,9 +370,6 @@ local function palette_use(win, opts)
 	if not item then
 		notify("Move the cursor to a color row", "warn")
 		return
-	end
-	if vim.bo[win.buf].modified then
-		palette_save_buffer(win.buf, true)
 	end
 
 	local hex = item.hex
@@ -294,9 +404,6 @@ local function palette_delete(win)
 		notify("Move the cursor to a color row", "warn")
 		return
 	end
-	if vim.bo[win.buf].modified then
-		palette_save_buffer(win.buf, true)
-	end
 	local cursor_lnum = vim.api.nvim_win_get_cursor(win.win)[1]
 	if store.remove(item) then
 		notify("Removed " .. item.hex)
@@ -308,11 +415,10 @@ end
 
 ---Open the palette/recent-color manager.
 ---
----The palette is a normal modifiable buffer: edit labels directly with Vim's
----text-editing commands and write the buffer (`:w`) to persist the renames.
----Confirming an item sends it to the active color picker when one is open;
----otherwise it opens a new picker seeded with that color so the user can still
----convert, copy or insert it.
+---The palette is a read-only floating selector: rename labels using `r`, move
+---items between palettes using `p`, and delete items using `dd`. Confirming
+---an item sends it to the active color picker when one is open; otherwise
+---it opens a new picker seeded with that color.
 ---@param opts? { state?: ChromaState, recents_only?: boolean }
 function M.open(opts)
 	opts = opts or {}
@@ -347,7 +453,13 @@ function M.open(opts)
 					desc = "Use",
 				},
 				y = { palette_copy, desc = "Copy" },
+				yy = { palette_copy, desc = "Copy" },
 				D = { palette_delete, desc = "Delete" },
+				dd = { palette_delete, desc = "Delete" },
+				r = { palette_rename, desc = "Rename Label" },
+				e = { palette_rename, desc = "Rename Label" },
+				p = { palette_move, desc = "Move Palette" },
+				m = { palette_move, desc = "Move Palette" },
 				["?"] = {
 					function(win)
 						win:toggle_help({ col_width = 22, key_width = 10 })
@@ -356,12 +468,15 @@ function M.open(opts)
 				},
 			},
 			bo = {
-				buftype = "acwrite",
+				buftype = "nofile",
 				bufhidden = "wipe",
 				filetype = "chroma_palette",
-				modifiable = true,
+				modifiable = false,
 				readonly = false,
 				swapfile = false,
+			},
+			wo = {
+				cursorline = true,
 			},
 			on_buf = function(win)
 				pcall(
@@ -370,13 +485,6 @@ function M.open(opts)
 					("chroma://palette/%s-%d"):format(opts.recents_only and "recents" or "palettes", win.id)
 				)
 				palette_render(win, opts)
-				vim.api.nvim_create_autocmd("BufWriteCmd", {
-					group = win.augroup,
-					buffer = win.buf,
-					callback = function()
-						palette_save_buffer(win.buf)
-					end,
-				})
 			end,
 			on_close = function(win)
 				palette_buffers[win.buf] = nil
