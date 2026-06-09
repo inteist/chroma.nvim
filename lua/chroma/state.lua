@@ -12,7 +12,6 @@ local util = require("chroma.util")
 
 local notify = util.notify
 local copy_to_clipboard = util.copy_to_clipboard
-local align = util.align
 
 local preview_ns = vim.api.nvim_create_namespace("chroma_preview")
 
@@ -652,44 +651,6 @@ function State:prompt_save_palette()
 			notify(("Saved %s to %s"):format(self:current_text("hex"), name))
 		end)
 	end)
-end
-
----Open a Snacks picker to choose an output format.
-function State:pick_format()
-	local snacks = util.get_snacks()
-	if not (snacks and snacks.picker) then
-		notify("Snacks picker is not available", "error")
-		return
-	end
-	local items = {}
-	for _, fmt in ipairs(config.format_order) do
-		items[#items + 1] = {
-			fmt = fmt,
-			text = color.format_labels[fmt] .. " " .. color.format(self.color, fmt),
-		}
-	end
-	snacks.picker({
-		title = "Color Format",
-		source = "chroma_formats",
-		items = items,
-		layout = { preset = "select", layout = { min_width = 54 } },
-		format = function(item)
-			return {
-				{
-					item.fmt == self.format and "● " or "○ ",
-					item.fmt == self.format and "ChromaAccent" or "ChromaMuted",
-				},
-				{ align(color.format_labels[item.fmt], 14), "ChromaSelectorTitle" },
-				{ color.format(self.color, item.fmt), "ChromaValue" },
-			}
-		end,
-		confirm = function(picker, item)
-			if item then
-				picker:close()
-				self:set_format(item.fmt)
-			end
-		end,
-	})
 end
 
 -- ── Render stub ──────────────────────────────────────────────────────────────
