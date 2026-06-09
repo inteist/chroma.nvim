@@ -1,0 +1,78 @@
+*chroma.nvim* Neovim color picker
+
+===============================================================================
+CONTENTS                                                        *chroma-contents*
+
+  Setup ....................................................... |chroma-setup|
+  Commands .................................................... |chroma-commands|
+  Lua API ..................................................... |chroma-api|
+
+===============================================================================
+SETUP                                                              *chroma-setup*
+
+Chroma requires folke/snacks.nvim.
+
+With lazy.nvim: >lua
+
+  {
+    "max/chroma.nvim",
+    dependencies = { "folke/snacks.nvim" },
+    opts = {
+      store = { max_recents = 40 },
+    },
+  }
+<
+
+For local development: >lua
+
+  {
+    "chroma.nvim",
+    dir = vim.fn.expand("~/Projects/chroma.nvim"),
+    dependencies = { "folke/snacks.nvim" },
+    opts = {},
+  }
+<
+
+===============================================================================
+COMMANDS                                                        *chroma-commands*
+
+                                                        *:ColorPicker*
+:ColorPicker [color]
+    Open Chroma, optionally seeded with a color value.
+
+                                                        *:ColorPickerCursor*
+:ColorPickerCursor
+    Open Chroma for the color under cursor or visual selection.
+
+                                                        *:ColorPickerInput*
+:ColorPickerInput
+    Prompt for a color value, then open Chroma.
+
+                                                        *:ColorPickerPalettes*
+:ColorPickerPalettes
+    Open saved color palettes.
+
+                                                        *:ColorPickerRecents*
+:ColorPickerRecents
+    Open recent colors.
+
+                                                        *:ColorPickerCopy*
+:ColorPickerCopy [format]
+    Copy the color under cursor or visual selection, optionally converted to a
+    format.
+
+===============================================================================
+LUA API                                                            *chroma-api*
+
+>lua
+  local chroma = require("chroma")
+
+  chroma.setup({ store = { max_recents = 40 } })
+  chroma.open()
+  chroma.open({ value = "#ff00ff" })
+  chroma.open_under_cursor({ selection = false })
+  chroma.copy_under_cursor({ format = "hex" })
+  chroma.palettes()
+<
+
+ vim:tw=78:ts=8:noet:ft=help:norl:
