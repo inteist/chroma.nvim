@@ -10,13 +10,12 @@ CONTENTS                                                        *chroma-contents
 ===============================================================================
 SETUP                                                              *chroma-setup*
 
-Chroma requires folke/snacks.nvim.
+Chroma requires Neovim 0.10 or newer and has no runtime plugin dependencies.
 
 With lazy.nvim: >lua
 
   {
     "max/chroma.nvim",
-    dependencies = { "folke/snacks.nvim" },
     opts = {
       store = { max_recents = 40 },
     },
@@ -28,7 +27,6 @@ For local development: >lua
   {
     "chroma.nvim",
     dir = vim.fn.expand("~/Projects/chroma.nvim"),
-    dependencies = { "folke/snacks.nvim" },
     opts = {},
   }
 <

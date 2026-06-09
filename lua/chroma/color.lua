@@ -76,11 +76,17 @@ local function round(value, places)
 	return math.floor(value * scale + 0.5) / scale
 end
 
-local function trim(value) return (tostring(value or ""):gsub("^%s+", ""):gsub("%s+$", "")) end
+local function trim(value)
+	return (tostring(value or ""):gsub("^%s+", ""):gsub("%s+$", ""))
+end
 
-local function component_to_hex(value) return string.format("%02x", clamp(round(value), 0, 255)) end
+local function component_to_hex(value)
+	return string.format("%02x", clamp(round(value), 0, 255))
+end
 
-local function alpha_to_hex(value) return string.format("%02x", clamp(round((value or 1) * 255), 0, 255)) end
+local function alpha_to_hex(value)
+	return string.format("%02x", clamp(round((value or 1) * 255), 0, 255))
+end
 
 local function expand_hex(hex)
 	if #hex == 3 or #hex == 4 then
@@ -457,9 +463,13 @@ function M.parse(value)
 	return nil, nil, ("could not parse color value: %s"):format(value)
 end
 
-local function percent(value) return tostring(round(value)) .. "%" end
+local function percent(value)
+	return tostring(round(value)) .. "%"
+end
 
-local function alpha_string(value) return ("%.2f"):format(round(value, 2)):gsub("0+$", ""):gsub("%.$", "") end
+local function alpha_string(value)
+	return ("%.2f"):format(round(value, 2)):gsub("0+$", ""):gsub("%.$", "")
+end
 
 ---Format a color for insertion/copying.
 ---@param c DotconfigColor
@@ -603,7 +613,9 @@ local function add_match(matches, line, start_idx, end_idx)
 	end
 end
 
-local function overlaps(a, b) return a.start_col < b.end_col and b.start_col < a.end_col end
+local function overlaps(a, b)
+	return a.start_col < b.end_col and b.start_col < a.end_col
+end
 
 ---Find parseable color literals in a single line of text.
 ---
@@ -655,7 +667,9 @@ function M.find_all(line)
 		start = e + 1
 	end
 
-	table.sort(matches, function(a, b) return a.start_col < b.start_col end)
+	table.sort(matches, function(a, b)
+		return a.start_col < b.start_col
+	end)
 	return matches
 end
 

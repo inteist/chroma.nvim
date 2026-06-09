@@ -34,9 +34,13 @@ local default_data = {
 	},
 }
 
-local function now() return os.time() end
+local function now()
+	return os.time()
+end
 
-local function deepcopy(value) return vim.deepcopy(value) end
+local function deepcopy(value)
+	return vim.deepcopy(value)
+end
 
 local function read_json(path)
 	if vim.uv.fs_stat(path) == nil then
@@ -173,7 +177,9 @@ end
 
 ---Return the palette JSON path used by the store.
 ---@return string
-function M.path() return config.path end
+function M.path()
+	return config.path
+end
 
 ---Load palette data from disk, creating an in-memory default model when needed.
 ---@return table
@@ -187,7 +193,9 @@ end
 
 ---Persist the current palette model to disk.
 ---@return boolean
-function M.save() return write_json(config.path, M.load()) end
+function M.save()
+	return write_json(config.path, M.load())
+end
 
 ---Remember a color at the top of the recent list.
 ---@param value string|DotconfigColor

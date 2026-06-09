@@ -8,6 +8,7 @@ local store = require("chroma.store")
 local geo = require("chroma.geometry")
 local hl_mod = require("chroma.highlights")
 local util = require("chroma.util")
+local window = require("chroma.window")
 
 local align = util.align
 local notify = util.notify
@@ -94,7 +95,7 @@ end
 -- ── Buffer rendering ─────────────────────────────────────────────────────────
 
 ---Render the palette items into the buffer.
----@param win snacks.win
+---@param win ChromaWindow
 ---@param opts table
 ---@param cursor_lnum? number
 ---@return boolean
@@ -132,11 +133,9 @@ local function palette_render(win, opts, cursor_lnum)
 			end_col = rendered.palette_end,
 			hl = item.scope == "recent" and "ChromaAccent" or "ChromaTitle",
 		}
-		hls[#hls + 1] =
-			{ row = row, start_col = rendered.hex_start, end_col = rendered.hex_end, hl = "ChromaValue" }
+		hls[#hls + 1] = { row = row, start_col = rendered.hex_start, end_col = rendered.hex_end, hl = "ChromaValue" }
 		if item.label and item.label ~= "" then
-			hls[#hls + 1] =
-				{ row = row, start_col = #rendered.prefix, end_col = #rendered.line, hl = "ChromaMuted" }
+			hls[#hls + 1] = { row = row, start_col = #rendered.prefix, end_col = #rendered.line, hl = "ChromaMuted" }
 		end
 		pending[#pending + 1] = {
 			row = row,
@@ -221,7 +220,7 @@ end
 -- ── Item resolution ──────────────────────────────────────────────────────────
 
 ---Return the store item under the cursor in a palette window.
----@param win snacks.win
+---@param win ChromaWindow
 ---@return table?
 local function palette_current_item(win)
 	local model = palette_buffers[win.buf]
@@ -242,7 +241,7 @@ end
 
 -- ── Palette actions ──────────────────────────────────────────────────────────
 
----@param win snacks.win
+---@param win ChromaWindow
 local function palette_close(win)
 	if win.buf and vim.api.nvim_buf_is_valid(win.buf) and vim.bo[win.buf].modified then
 		notify("Use :w to save palette label changes or :q! to discard", "warn")
@@ -251,7 +250,7 @@ local function palette_close(win)
 	win:close()
 end
 
----@param win snacks.win
+---@param win ChromaWindow
 ---@param opts table
 local function palette_use(win, opts)
 	local item = palette_current_item(win)
@@ -276,7 +275,7 @@ local function palette_use(win, opts)
 	end)
 end
 
----@param win snacks.win
+---@param win ChromaWindow
 local function palette_copy(win)
 	local item = palette_current_item(win)
 	if not item then
@@ -288,7 +287,7 @@ local function palette_copy(win)
 	notify("Copied " .. item.hex)
 end
 
----@param win snacks.win
+---@param win ChromaWindow
 local function palette_delete(win)
 	local item = palette_current_item(win)
 	if not item then
@@ -317,12 +316,7 @@ end
 ---@param opts? { state?: ChromaState, recents_only?: boolean }
 function M.open(opts)
 	opts = opts or {}
-	local snacks = util.get_snacks()
-	if not (snacks and snacks.win) then
-		notify("Snacks.win is not available", "error")
-		return
-	end
-
+	hl_mod.ensure()
 	local items = palette_items(opts.recents_only)
 	if #items == 0 then
 		notify("No saved colors yet", "warn")
@@ -330,54 +324,65 @@ function M.open(opts)
 	end
 
 	local title = opts.recents_only and "Recent Colors" or "Color Palettes"
-	snacks.win.new({
-		style = "color_picker",
-		show = false,
-		text = { "" },
-		ft = "chroma_palette",
-		title = "󰏘  " .. title,
-		title_pos = "center",
-		footer = palette_footer(),
-		footer_pos = "center",
-		backdrop = false,
-		zindex = 80,
-		width = geo.PALETTE_WIDTH,
-		height = math.min(24, math.max(8, #items + 3)),
-		keys = {
-			q = { palette_close, desc = "Close" },
-			["<esc>"] = { palette_close, desc = "Close" },
-			["<cr>"] = { function(win) palette_use(win, opts) end, desc = "Use" },
-			y = { palette_copy, desc = "Copy" },
-			D = { palette_delete, desc = "Delete" },
-			["?"] = { function(win) win:toggle_help({ col_width = 22, key_width = 10 }) end, desc = "Help" },
-		},
-		bo = {
-			buftype = "acwrite",
-			bufhidden = "wipe",
-			filetype = "chroma_palette",
-			modifiable = true,
-			readonly = false,
-			swapfile = false,
-		},
-		on_buf = function(win)
-			pcall(
-				vim.api.nvim_buf_set_name,
-				win.buf,
-				("chroma://palette/%s-%d"):format(opts.recents_only and "recents" or "palettes", win.id)
-			)
-			palette_render(win, opts)
-			vim.api.nvim_create_autocmd("BufWriteCmd", {
-				group = win.augroup,
-				buffer = win.buf,
-				callback = function()
-					palette_save_buffer(win.buf)
-				end,
-			})
-		end,
-		on_close = function(win)
-			palette_buffers[win.buf] = nil
-		end,
-	}):show()
+	window
+		.new({
+			show = false,
+			text = { "" },
+			ft = "chroma_palette",
+			title = "󰏘  " .. title,
+			title_pos = "center",
+			footer = palette_footer(),
+			footer_pos = "center",
+			backdrop = false,
+			zindex = 80,
+			width = geo.PALETTE_WIDTH,
+			height = math.min(24, math.max(8, #items + 3)),
+			keys = {
+				q = { palette_close, desc = "Close" },
+				["<esc>"] = { palette_close, desc = "Close" },
+				["<cr>"] = {
+					function(win)
+						palette_use(win, opts)
+					end,
+					desc = "Use",
+				},
+				y = { palette_copy, desc = "Copy" },
+				D = { palette_delete, desc = "Delete" },
+				["?"] = {
+					function(win)
+						win:toggle_help({ col_width = 22, key_width = 10 })
+					end,
+					desc = "Help",
+				},
+			},
+			bo = {
+				buftype = "acwrite",
+				bufhidden = "wipe",
+				filetype = "chroma_palette",
+				modifiable = true,
+				readonly = false,
+				swapfile = false,
+			},
+			on_buf = function(win)
+				pcall(
+					vim.api.nvim_buf_set_name,
+					win.buf,
+					("chroma://palette/%s-%d"):format(opts.recents_only and "recents" or "palettes", win.id)
+				)
+				palette_render(win, opts)
+				vim.api.nvim_create_autocmd("BufWriteCmd", {
+					group = win.augroup,
+					buffer = win.buf,
+					callback = function()
+						palette_save_buffer(win.buf)
+					end,
+				})
+			end,
+			on_close = function(win)
+				palette_buffers[win.buf] = nil
+			end,
+		})
+		:show()
 end
 
 return M

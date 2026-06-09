@@ -8,6 +8,7 @@ local color = require("chroma.color")
 local store = require("chroma.store")
 local geo = require("chroma.geometry")
 local hl = require("chroma.highlights")
+local input = require("chroma.input")
 local util = require("chroma.util")
 
 local notify = util.notify
@@ -148,7 +149,7 @@ local function resolve_initial(opts)
 		return opts.target.color, opts.target.format, opts.target
 	end
 
-	-- Explicit values come first so `:ColorPicker #ff00ff` and Snacks.input
+	-- Explicit values come first so `:ColorPicker #ff00ff` and input prompts
 	-- always seed the picker with what the user typed, even if the cursor also
 	-- happens to be on a different color literal.
 	if opts.value then
@@ -174,16 +175,6 @@ local function resolve_initial(opts)
 	return parsed, opts.format or fmt, nil
 end
 
--- ── Throttle helper ──────────────────────────────────────────────────────────
-
-local function throttle(fn, ms)
-	local snacks = util.get_snacks()
-	if snacks and snacks.util and snacks.util.throttle then
-		return snacks.util.throttle(fn, { ms = ms })
-	end
-	return fn
-end
-
 -- ── State class ──────────────────────────────────────────────────────────────
 
 ---@class ChromaState
@@ -203,7 +194,7 @@ end
 ---@field closed boolean
 ---@field insert_on_confirm boolean
 ---@field live_preview boolean
----@field win snacks.win?
+---@field win ChromaWindow?
 ---@field preview fun()
 local State = {}
 State.__index = State
@@ -236,7 +227,7 @@ function State.new(opts)
 		live_preview = opts.live_preview ~= false and config.live_preview,
 	}, State)
 
-	self.preview = throttle(function()
+	self.preview = util.throttle(function()
 		self:sync_editor_preview()
 	end, 16)
 
@@ -479,20 +470,13 @@ function State:sync_editor_preview()
 
 	if vim.api.nvim_buf_is_valid(self.source_buf) then
 		vim.api.nvim_buf_clear_namespace(self.source_buf, preview_ns, 0, -1)
-		pcall(
-			vim.api.nvim_buf_set_extmark,
-			self.source_buf,
-			preview_ns,
-			self.source_pos[1] - 1,
-			self.source_pos[2],
-			{
-				virt_text = {
-					{ "  " .. self:current_text() .. "  ", hl.live_swatch_hl(self.color, true, "Source") },
-				},
-				virt_text_pos = "inline",
-				hl_mode = "combine",
-			}
-		)
+		pcall(vim.api.nvim_buf_set_extmark, self.source_buf, preview_ns, self.source_pos[1] - 1, self.source_pos[2], {
+			virt_text = {
+				{ "  " .. self:current_text() .. "  ", hl.live_swatch_hl(self.color, true, "Source") },
+			},
+			virt_text_pos = "inline",
+			hl_mode = "combine",
+		})
 	end
 end
 
@@ -605,14 +589,9 @@ end
 
 -- ── Interactive prompts ──────────────────────────────────────────────────────
 
----Open a Snacks.input prompt to type a color value.
+---Open an input prompt to type a color value.
 function State:prompt_value()
-	local snacks = util.get_snacks()
-	if not (snacks and snacks.input) then
-		notify("Snacks input is not available", "error")
-		return
-	end
-	snacks.input({
+	input.prompt({
 		prompt = "Color value",
 		default = self:current_text(),
 	}, function(value)
@@ -630,20 +609,15 @@ end
 
 ---Prompt for a palette name + label and save the current color.
 function State:prompt_save_palette()
-	local snacks = util.get_snacks()
-	if not (snacks and snacks.input) then
-		notify("Snacks input is not available", "error")
-		return
-	end
 	local default_palette = store.palette_names()[1] or "Custom"
-	snacks.input({
+	input.prompt({
 		prompt = "Palette name",
 		default = default_palette,
 	}, function(name)
 		if not name or vim.trim(name) == "" then
 			return
 		end
-		snacks.input({
+		input.prompt({
 			prompt = "Color label (optional)",
 			default = self:current_text("hex"),
 		}, function(label)
