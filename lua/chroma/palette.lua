@@ -14,6 +14,9 @@ local align = util.align
 local notify = util.notify
 local copy_to_clipboard = util.copy_to_clipboard
 
+-- Leave a small gutter inside the outer palette float while keeping both panes equal.
+local PALETTE_PANE_WIDTH = math.floor((geo.PALETTE_WIDTH - 2) / 2)
+
 local palette_ns = vim.api.nvim_create_namespace("chroma_palette")
 
 ---Per-buffer metadata for open palette windows.
@@ -115,6 +118,20 @@ end
 local function input_prompt(opts, on_confirm)
 	opts = opts or {}
 	local win
+
+	local function confirm(current)
+		local val = vim.api.nvim_buf_get_lines(current.buf, 0, 1, false)[1] or ""
+		current:close()
+		vim.cmd("stopinsert")
+		on_confirm(val)
+	end
+
+	local function cancel(current)
+		current:close()
+		vim.cmd("stopinsert")
+		on_confirm(nil)
+	end
+
 	win = window.new({
 		width = 40,
 		height = 1,
@@ -125,31 +142,9 @@ local function input_prompt(opts, on_confirm)
 		backdrop = false,
 		zindex = 95,
 		keys = {
-			["<cr>"] = {
-				function(current)
-					local val = vim.api.nvim_buf_get_lines(current.buf, 0, 1, false)[1] or ""
-					current:close()
-					vim.cmd("stopinsert")
-					on_confirm(val)
-				end,
-				desc = "Confirm",
-			},
-			["<esc>"] = {
-				function(current)
-					current:close()
-					vim.cmd("stopinsert")
-					on_confirm(nil)
-				end,
-				desc = "Cancel",
-			},
-			q = {
-				function(current)
-					current:close()
-					vim.cmd("stopinsert")
-					on_confirm(nil)
-				end,
-				desc = "Cancel",
-			},
+			["<cr>"] = { confirm, desc = "Confirm" },
+			["<esc>"] = { cancel, desc = "Cancel" },
+			q = { cancel, desc = "Cancel" },
 		},
 		bo = {
 			buftype = "",
@@ -159,16 +154,11 @@ local function input_prompt(opts, on_confirm)
 		},
 		on_buf = function(current)
 			vim.keymap.set("i", "<cr>", function()
-				local val = vim.api.nvim_buf_get_lines(current.buf, 0, 1, false)[1] or ""
-				current:close()
-				vim.cmd("stopinsert")
-				on_confirm(val)
+				confirm(current)
 			end, { buffer = current.buf, silent = true })
 
 			vim.keymap.set("i", "<esc>", function()
-				current:close()
-				vim.cmd("stopinsert")
-				on_confirm(nil)
+				cancel(current)
 			end, { buffer = current.buf, silent = true })
 		end,
 		on_win = function(current)
@@ -192,10 +182,20 @@ local function palette_current_item(win)
 	end
 
 	local cursor_row = vim.api.nvim_win_get_cursor(right_win)[1] - 1
-	for mark, meta in pairs(model.rows) do
-		local pos = vim.api.nvim_buf_get_extmark_by_id(right_buf, palette_ns, mark, {})
+	local mark = model.row_marks and model.row_marks[cursor_row]
+	local meta = mark and model.rows[mark]
+	if meta then
+		return meta.item
+	end
+
+	-- Fallback for unexpected edits that move extmarks away from the cached row map.
+	for fallback_mark, fallback_meta in pairs(model.rows) do
+		local pos = vim.api.nvim_buf_get_extmark_by_id(right_buf, palette_ns, fallback_mark, {})
 		if pos and pos[1] == cursor_row then
-			return meta.item
+			if model.row_marks then
+				model.row_marks[cursor_row] = fallback_mark
+			end
+			return fallback_meta.item
 		end
 	end
 	return nil
@@ -403,9 +403,9 @@ palette_render = function(win, opts, cursor_lnum)
 
 	local items = palette_items(opts.recents_only)
 	if #items == 0 then
-		palette_buffers[left_buf] = nil
-		palette_buffers[right_buf] = nil
 		notify("No saved colors yet", "warn")
+		-- palette_close owns metadata cleanup after deleting the lifecycle augroup,
+		-- so BufWriteCmd cannot race with partially-cleared palette_buffers entries.
 		palette_close(win)
 		return false
 	end
@@ -502,9 +502,11 @@ palette_render = function(win, opts, cursor_lnum)
 		title = title,
 		opts = opts,
 		rows = {},
+		row_marks = {},
 		first_lnum = 3,
 	}
 	model.rows = {}
+	model.row_marks = {}
 	for _, meta in ipairs(pending) do
 		local left_mark = vim.api.nvim_buf_set_extmark(left_buf, palette_ns, meta.row, 0, { right_gravity = false })
 		local right_mark = vim.api.nvim_buf_set_extmark(right_buf, palette_ns, meta.row, 0, { right_gravity = false })
@@ -513,7 +515,10 @@ palette_render = function(win, opts, cursor_lnum)
 			hex = meta.hex,
 			left_mark = left_mark,
 		}
+		model.row_marks[meta.row] = right_mark
 	end
+	-- Both buffers share the same model table intentionally; row extmarks live in
+	-- their respective panes, while actions may start from either buffer handle.
 	palette_buffers[left_buf] = model
 	palette_buffers[right_buf] = model
 
@@ -538,7 +543,6 @@ local function setup_left_keys(win, opts)
 	vim.keymap.set("n", "<cr>", function() palette_use(win, opts) end, map_opts)
 
 	vim.keymap.set("n", "y", function() palette_copy(win) end, map_opts)
-	vim.keymap.set("n", "yy", function() palette_copy(win) end, map_opts)
 
 	vim.keymap.set("n", "dd", function() palette_delete(win) end, map_opts)
 	vim.keymap.set("n", "D", function() palette_delete(win) end, map_opts)
@@ -639,6 +643,8 @@ function M.open(opts)
 
 	outer_win:show()
 
+	-- Child windows are relative to the outer content grid; floating borders sit
+	-- outside that grid, so this height stays correct if the outer border changes.
 	local inner_height = vim.api.nvim_win_get_height(outer_win.win)
 
 	-- Create Left and Right buffers
@@ -677,7 +683,7 @@ function M.open(opts)
 		win = outer_win.win,
 		row = 0,
 		col = 0,
-		width = 40,
+		width = PALETTE_PANE_WIDTH,
 		height = inner_height,
 		style = "minimal",
 		border = "none",
@@ -689,8 +695,8 @@ function M.open(opts)
 		relative = "win",
 		win = outer_win.win,
 		row = 0,
-		col = 40,
-		width = 40,
+		col = PALETTE_PANE_WIDTH,
+		width = PALETTE_PANE_WIDTH,
 		height = inner_height,
 		style = "minimal",
 		border = "none",
@@ -716,10 +722,13 @@ function M.open(opts)
 		vim.wo[w].cursorbind = true
 	end
 
+	-- Both buffers share the same model table intentionally so cross-pane cursor
+	-- sync and actions resolve through one set of row metadata.
 	palette_buffers[left_buf] = {
 		title = title,
 		opts = opts,
 		rows = {},
+		row_marks = {},
 		first_lnum = 3,
 	}
 	palette_buffers[right_buf] = palette_buffers[left_buf]
@@ -761,6 +770,8 @@ function M.open(opts)
 			if not vim.api.nvim_win_is_valid(right_win) then return end
 			local cursor = vim.api.nvim_win_get_cursor(right_win)
 			if cursor[1] < 3 then
+				-- Label rows start with a protected spacer; column 1 is the first
+				-- editable label column, unlike the read-only left pane's column 0.
 				pcall(vim.api.nvim_win_set_cursor, right_win, { 3, math.max(1, cursor[2]) })
 			end
 		end,

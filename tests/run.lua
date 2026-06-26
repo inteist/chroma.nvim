@@ -33,6 +33,19 @@ local function assert_eq(expected, actual, message)
 	end
 end
 
+local function assert_near(expected, actual, tolerance, message)
+	tolerance = tolerance or 1e-9
+	if math.abs(expected - actual) > tolerance then
+		fail(
+			(message or "values differ")
+				.. "\nexpected: "
+				.. vim.inspect(expected)
+				.. "\nactual:   "
+				.. vim.inspect(actual)
+		)
+	end
+end
+
 local function valid_win(win)
 	return win ~= nil and vim.api.nvim_win_is_valid(win)
 end
@@ -97,7 +110,10 @@ test("color parser supports 0x-prefixed RGB and ARGB hex", function()
 	assert_eq("0xff474a54", color.format(argb, "argb0x"))
 
 	local translucent = color.parse("0x80474A54")
-	assert_eq({ r = 71, g = 74, b = 84, a = 128 / 255 }, translucent)
+	assert_eq(71, translucent.r)
+	assert_eq(74, translucent.g)
+	assert_eq(84, translucent.b)
+	assert_near(128 / 255, translucent.a)
 	assert_eq("0x80474a54", color.format(translucent, "argb0x"))
 
 	local invalid = color.parse("0xFFF")
@@ -109,6 +125,13 @@ test("color parser supports 0x-prefixed RGB and ARGB hex", function()
 	assert_eq("rgb0x", matches[1].format)
 	assert_eq("0xFF474A54", matches[2].text)
 	assert_eq("argb0x", matches[2].format)
+end)
+
+test("color formatter preserves zero alpha", function()
+	local color = require("chroma.color")
+
+	assert_eq("rgba(1, 2, 3, 0)", color.format({ r = 1, g = 2, b = 3, a = 0 }, "rgba"))
+	assert_eq("0x00010203", color.format({ r = 1, g = 2, b = 3, a = 0 }, "argb0x"))
 end)
 
 test("window helper manages lifecycle, keymaps, title, and help", function()

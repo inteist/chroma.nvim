@@ -119,6 +119,8 @@ local function parse_hex(value)
 
 	local r, g, b, a, fmt
 	if is_0x and #hex == 8 then
+		-- 0x-prefixed 8-digit colors are parsed as Android-style AARRGGBB.
+		-- Keep alpha as a normalized float so alpha_to_hex() can round-trip it.
 		a = tonumber(hex:sub(1, 2), 16) / 255
 		r = tonumber(hex:sub(3, 4), 16)
 		g = tonumber(hex:sub(5, 6), 16)
@@ -626,13 +628,22 @@ function M.contrast(c)
 	return luminance > 0.5 and "#000000" or "#ffffff"
 end
 
+local overlaps
+
 local function add_match(matches, line, start_idx, end_idx)
+	local candidate = { start_col = start_idx - 1, end_col = end_idx }
+	for _, existing in ipairs(matches) do
+		if overlaps(candidate, existing) then
+			return
+		end
+	end
+
 	local text = line:sub(start_idx, end_idx)
 	local color, fmt = M.parse(text)
 	if color then
 		matches[#matches + 1] = {
-			start_col = start_idx - 1,
-			end_col = end_idx,
+			start_col = candidate.start_col,
+			end_col = candidate.end_col,
 			text = text,
 			color = color,
 			format = fmt,
@@ -640,7 +651,7 @@ local function add_match(matches, line, start_idx, end_idx)
 	end
 end
 
-local function overlaps(a, b)
+function overlaps(a, b)
 	return a.start_col < b.end_col and b.start_col < a.end_col
 end
 
@@ -689,17 +700,7 @@ function M.find_all(line)
 		end
 		local name = line:sub(s, e):lower()
 		if M.names[name] then
-			local candidate = { start_col = s - 1, end_col = e }
-			local covered = false
-			for _, existing in ipairs(matches) do
-				if overlaps(candidate, existing) then
-					covered = true
-					break
-				end
-			end
-			if not covered then
-				add_match(matches, line, s, e)
-			end
+			add_match(matches, line, s, e)
 		end
 		start = e + 1
 	end
