@@ -83,6 +83,34 @@ test("input prompts delegate to vim.ui.input", function()
 	assert_eq("#abcdef", result)
 end)
 
+test("color parser supports 0x-prefixed RGB and ARGB hex", function()
+	local color = require("chroma.color")
+
+	local rgb, rgb_fmt = color.parse("0xFF474A")
+	assert_eq({ r = 255, g = 71, b = 74, a = 1 }, rgb)
+	assert_eq("rgb0x", rgb_fmt)
+	assert_eq("0xff474a", color.format(rgb, "rgb0x"))
+
+	local argb, argb_fmt = color.parse("0xFF474A54")
+	assert_eq({ r = 71, g = 74, b = 84, a = 1 }, argb)
+	assert_eq("argb0x", argb_fmt)
+	assert_eq("0xff474a54", color.format(argb, "argb0x"))
+
+	local translucent = color.parse("0x80474A54")
+	assert_eq({ r = 71, g = 74, b = 84, a = 128 / 255 }, translucent)
+	assert_eq("0x80474a54", color.format(translucent, "argb0x"))
+
+	local invalid = color.parse("0xFFF")
+	assert_eq(nil, invalid, "0x shorthand should not be treated as a color")
+
+	local matches = color.find_all("fg = 0xFF474A bg = 0xFF474A54")
+	assert_eq(2, #matches)
+	assert_eq("0xFF474A", matches[1].text)
+	assert_eq("rgb0x", matches[1].format)
+	assert_eq("0xFF474A54", matches[2].text)
+	assert_eq("argb0x", matches[2].format)
+end)
+
 test("window helper manages lifecycle, keymaps, title, and help", function()
 	require("chroma.highlights").set_highlights()
 	local window = require("chroma.window")
@@ -196,27 +224,78 @@ test("palette store supports moving colors between palettes", function()
 	assert_eq("DestPalette", moved_item.palette, "should be in DestPalette")
 end)
 
-test("palette buffer uses read-only mode and cursorline highlight", function()
+test("palette buffer uses nested dual-pane floating windows with scrollbind and cursorbind", function()
 	local store = require("chroma.store")
 	store.setup({ path = vim.fn.tempname() })
 	store.add_to_palette("Test", "#ff00ff", "Pink")
 
 	require("chroma.palette").open()
-	local palette_win, palette_buf
-	for _, candidate in ipairs(vim.api.nvim_list_wins()) do
-		local buf = vim.api.nvim_win_get_buf(candidate)
-		if vim.bo[buf].filetype == "chroma_palette" then
-			palette_win, palette_buf = candidate, buf
-			break
+	local outer_win, outer_buf
+	local left_win, left_buf
+	local right_win, right_buf
+	for _, win in ipairs(vim.api.nvim_list_wins()) do
+		local buf = vim.api.nvim_win_get_buf(win)
+		local ft = vim.bo[buf].filetype
+		if ft == "chroma_palette_outer" then
+			outer_win, outer_buf = win, buf
+		elseif ft == "chroma_palette" then
+			left_win, left_buf = win, buf
+		elseif ft == "chroma_palette_labels" then
+			right_win, right_buf = win, buf
 		end
 	end
 
-	assert_true(valid_win(palette_win), "palette window should open")
-	assert_true(valid_buf(palette_buf), "palette buffer should open")
-	assert_false(vim.bo[palette_buf].modifiable, "palette buffer should be read-only")
-	assert_true(vim.wo[palette_win].cursorline, "palette window should have cursorline enabled")
+	assert_true(valid_win(outer_win), "outer window should open")
+	assert_true(valid_win(left_win), "left palette window should open")
+	assert_true(valid_win(right_win), "right labels window should open")
+	assert_true(valid_buf(left_buf), "left palette buffer should open")
+	assert_true(valid_buf(right_buf), "right labels buffer should open")
 
-	pcall(vim.api.nvim_win_close, palette_win, true)
+	assert_false(vim.bo[left_buf].modifiable, "left palette buffer should be read-only")
+	assert_true(vim.bo[right_buf].modifiable, "right labels buffer should be modifiable")
+
+	assert_true(vim.wo[left_win].cursorline, "left window should have cursorline")
+	assert_true(vim.wo[right_win].cursorline, "right window should have cursorline")
+
+	assert_true(vim.wo[left_win].scrollbind, "left window should have scrollbind")
+	assert_true(vim.wo[right_win].scrollbind, "right window should have scrollbind")
+	assert_true(vim.wo[left_win].cursorbind, "left window should have cursorbind")
+	assert_true(vim.wo[right_win].cursorbind, "right window should have cursorbind")
+
+	pcall(vim.api.nvim_win_close, outer_win, true)
+end)
+
+test("palette buffer supports saving label edits via BufWriteCmd in nested layout", function()
+	local store = require("chroma.store")
+	store.setup({ path = vim.fn.tempname() })
+	store.add_to_palette("Test", "#ff00ff", "Pink")
+
+	require("chroma.palette").open()
+	local outer_win
+	local right_buf
+	for _, win in ipairs(vim.api.nvim_list_wins()) do
+		local buf = vim.api.nvim_win_get_buf(win)
+		local ft = vim.bo[buf].filetype
+		if ft == "chroma_palette_outer" then
+			outer_win = win
+		elseif ft == "chroma_palette_labels" then
+			right_buf = buf
+		end
+	end
+
+	-- Edit the label in the right buffer (line 3 represents first item)
+	vim.api.nvim_buf_set_lines(right_buf, 2, 3, false, { " HotPink" })
+
+	-- Trigger BufWriteCmd
+	vim.api.nvim_buf_call(right_buf, function()
+		vim.cmd("write")
+	end)
+
+	-- Check that the store has been updated
+	local items = store.items()
+	assert_eq("HotPink", items[1].label)
+
+	pcall(vim.api.nvim_win_close, outer_win, true)
 end)
 
 test("chroma opens without an external UI module", function()

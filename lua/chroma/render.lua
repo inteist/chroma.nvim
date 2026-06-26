@@ -217,7 +217,7 @@ local function build_model(state)
 		}
 	end
 
-	for row = 1, 10 do
+	for row = 1, math.max(10, #format_lines) do
 		add_split_line(lines, hls, format_lines[row] or { { "  " } }, preview, geo.LAYOUT_WIDTH)
 	end
 	add_split_line(lines, hls, { { "  " } }, { { string.rep(" ", geo.PREVIEW_WIDTH) } }, geo.LAYOUT_WIDTH)
@@ -326,11 +326,14 @@ function M.show(state)
 	end
 
 	hl_mod.ensure()
+	local cfg = state_mod.get_config()
+	local format_rows = math.max(10, #(cfg.format_order or color.formats) + 2)
+
 	state.win = window.new({
 		show = false,
 		text = { "" },
 		ft = "chroma",
-		height = geo.PICKER_HEIGHT,
+		height = geo.PICKER_HEIGHT + math.max(0, format_rows - 10),
 		footer = picker_footer(),
 		keys = {
 			q = {

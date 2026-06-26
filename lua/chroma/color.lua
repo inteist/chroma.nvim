@@ -6,11 +6,13 @@
 
 local M = {}
 
-M.formats = { "hex", "hexa", "rgb", "rgba", "hsl", "hsla", "hsv" }
+M.formats = { "hex", "hexa", "rgb0x", "argb0x", "rgb", "rgba", "hsl", "hsla", "hsv" }
 
 M.format_labels = {
 	hex = "HEX",
 	hexa = "HEX + Alpha",
+	rgb0x = "0x RGB",
+	argb0x = "0x ARGB",
 	rgb = "RGB",
 	rgba = "RGBA",
 	hsl = "HSL",
@@ -96,22 +98,42 @@ local function expand_hex(hex)
 end
 
 local function parse_hex(value)
-	local hex = trim(value):lower():match("^#?([%da-f]+)$")
+	local text = trim(value):lower()
+	local hex = text:match("^#?([%da-f]+)$")
+	local is_0x = false
+	if not hex then
+		hex = text:match("^0x([%da-f]+)$")
+		is_0x = hex ~= nil
+	end
 	if not hex then
 		return nil
 	end
 
-	if not (#hex == 3 or #hex == 4 or #hex == 6 or #hex == 8) then
+	local valid_length = #hex == 6 or #hex == 8
+	if not is_0x then
+		valid_length = valid_length or #hex == 3 or #hex == 4
+	end
+	if not valid_length then
 		return nil
 	end
 
-	hex = expand_hex(hex)
-	local r = tonumber(hex:sub(1, 2), 16)
-	local g = tonumber(hex:sub(3, 4), 16)
-	local b = tonumber(hex:sub(5, 6), 16)
-	local a = #hex == 8 and (tonumber(hex:sub(7, 8), 16) / 255) or 1
+	local r, g, b, a, fmt
+	if is_0x and #hex == 8 then
+		a = tonumber(hex:sub(1, 2), 16) / 255
+		r = tonumber(hex:sub(3, 4), 16)
+		g = tonumber(hex:sub(5, 6), 16)
+		b = tonumber(hex:sub(7, 8), 16)
+		fmt = "argb0x"
+	else
+		hex = expand_hex(hex)
+		r = tonumber(hex:sub(1, 2), 16)
+		g = tonumber(hex:sub(3, 4), 16)
+		b = tonumber(hex:sub(5, 6), 16)
+		a = #hex == 8 and (tonumber(hex:sub(7, 8), 16) / 255) or 1
+		fmt = is_0x and "rgb0x" or (#hex == 8 and "hexa" or "hex")
+	end
 
-	return { r = r, g = g, b = b, a = a }, #hex == 8 and "hexa" or "hex"
+	return { r = r, g = g, b = b, a = a }, fmt
 end
 
 local function split_args(args)
@@ -425,7 +447,8 @@ end
 ---Parse a color from common authoring formats.
 ---
 ---Supported inputs include `#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`,
----`rgb()`, `rgba()`, `hsl()`, `hsla()`, `hsv()` and common CSS color names.
+---`0xrrggbb`, `0xaarrggbb`, `rgb()`, `rgba()`, `hsl()`, `hsla()`,
+---`hsv()` and common CSS color names.
 ---@param value string
 ---@return DotconfigColor? color
 ---@return string? format Detected format (`hex`, `rgb`, `hsl`, etc.).
@@ -483,6 +506,10 @@ function M.format(c, fmt)
 		return M.to_hex(c, false)
 	elseif fmt == "hexa" then
 		return M.to_hex(c, true)
+	elseif fmt == "rgb0x" then
+		return "0x" .. component_to_hex(c.r) .. component_to_hex(c.g) .. component_to_hex(c.b)
+	elseif fmt == "argb0x" then
+		return "0x" .. alpha_to_hex(c.a) .. component_to_hex(c.r) .. component_to_hex(c.g) .. component_to_hex(c.b)
 	elseif fmt == "rgb" then
 		return ("rgb(%d, %d, %d)"):format(c.r, c.g, c.b)
 	elseif fmt == "rgba" then
@@ -627,6 +654,16 @@ function M.find_all(line)
 	local start = 1
 	while true do
 		local s, e = line:find("#%x+", start)
+		if not s then
+			break
+		end
+		add_match(matches, line, s, e)
+		start = e + 1
+	end
+
+	start = 1
+	while true do
+		local s, e = line:find("%f[%w_]0[xX]%x+%f[^%w_]", start)
 		if not s then
 			break
 		end
