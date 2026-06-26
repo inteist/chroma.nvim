@@ -34,9 +34,13 @@ local default_data = {
 	},
 }
 
-local function now() return os.time() end
+local function now()
+	return os.time()
+end
 
-local function deepcopy(value) return vim.deepcopy(value) end
+local function deepcopy(value)
+	return vim.deepcopy(value)
+end
 
 local function read_json(path)
 	if vim.uv.fs_stat(path) == nil then
@@ -173,7 +177,9 @@ end
 
 ---Return the palette JSON path used by the store.
 ---@return string
-function M.path() return config.path end
+function M.path()
+	return config.path
+end
 
 ---Load palette data from disk, creating an in-memory default model when needed.
 ---@return table
@@ -187,7 +193,9 @@ end
 
 ---Persist the current palette model to disk.
 ---@return boolean
-function M.save() return write_json(config.path, M.load()) end
+function M.save()
+	return write_json(config.path, M.load())
+end
 
 ---Remember a color at the top of the recent list.
 ---@param value string|DotconfigColor
@@ -282,6 +290,52 @@ function M.remove(item)
 		end
 	end
 	return false
+end
+
+---Move a palette/recent item to a different palette.
+---@param item table Picker item returned by `items()`.
+---@param new_palette string New palette name.
+---@return boolean
+function M.move_to_palette(item, new_palette)
+	new_palette = vim.trim(new_palette or "")
+	if new_palette == "" then
+		new_palette = "Custom"
+	end
+
+	local data = M.load()
+	local entry ---@type table?
+
+	if item.scope == "recent" then
+		for i, e in ipairs(data.recents) do
+			if i == item.index or color_key(e) == item.key then
+				entry = table.remove(data.recents, i)
+				break
+			end
+		end
+	elseif item.scope == "palette" then
+		for _, palette in ipairs(data.palettes) do
+			if palette.name == item.palette then
+				for i, e in ipairs(palette.colors) do
+					if i == item.index or color_key(e) == item.key then
+						entry = table.remove(palette.colors, i)
+						break
+					end
+				end
+			end
+		end
+	end
+
+	if not entry then
+		return false
+	end
+
+	local dest = find_palette(data, new_palette)
+	entry.used_at = now()
+	remove_duplicate(dest.colors, color_key(entry))
+	table.insert(dest.colors, 1, entry)
+
+	M.save()
+	return true
 end
 
 ---Rename a palette/recent item returned from `items()`.

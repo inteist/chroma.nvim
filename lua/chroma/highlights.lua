@@ -44,6 +44,7 @@ function M.set_highlights()
 	set_hl("ChromaFooter", { fg = muted, bg = bg })
 	set_hl("ChromaFooterKey", { fg = muted, bg = bg, bold = true })
 	set_hl("ChromaFooterDesc", { fg = "#666666", bg = bg })
+	set_hl("ChromaBackdrop", { bg = "#000000" })
 	highlights_ready = true
 end
 

@@ -6,11 +6,13 @@
 
 local M = {}
 
-M.formats = { "hex", "hexa", "rgb", "rgba", "hsl", "hsla", "hsv" }
+M.formats = { "hex", "hexa", "rgb0x", "argb0x", "rgb", "rgba", "hsl", "hsla", "hsv" }
 
 M.format_labels = {
 	hex = "HEX",
 	hexa = "HEX + Alpha",
+	rgb0x = "0x RGB",
+	argb0x = "0x ARGB",
 	rgb = "RGB",
 	rgba = "RGBA",
 	hsl = "HSL",
@@ -76,11 +78,17 @@ local function round(value, places)
 	return math.floor(value * scale + 0.5) / scale
 end
 
-local function trim(value) return (tostring(value or ""):gsub("^%s+", ""):gsub("%s+$", "")) end
+local function trim(value)
+	return (tostring(value or ""):gsub("^%s+", ""):gsub("%s+$", ""))
+end
 
-local function component_to_hex(value) return string.format("%02x", clamp(round(value), 0, 255)) end
+local function component_to_hex(value)
+	return string.format("%02x", clamp(round(value), 0, 255))
+end
 
-local function alpha_to_hex(value) return string.format("%02x", clamp(round((value or 1) * 255), 0, 255)) end
+local function alpha_to_hex(value)
+	return string.format("%02x", clamp(round((value or 1) * 255), 0, 255))
+end
 
 local function expand_hex(hex)
 	if #hex == 3 or #hex == 4 then
@@ -90,22 +98,44 @@ local function expand_hex(hex)
 end
 
 local function parse_hex(value)
-	local hex = trim(value):lower():match("^#?([%da-f]+)$")
+	local text = trim(value):lower()
+	local hex = text:match("^#?([%da-f]+)$")
+	local is_0x = false
+	if not hex then
+		hex = text:match("^0x([%da-f]+)$")
+		is_0x = hex ~= nil
+	end
 	if not hex then
 		return nil
 	end
 
-	if not (#hex == 3 or #hex == 4 or #hex == 6 or #hex == 8) then
+	local valid_length = #hex == 6 or #hex == 8
+	if not is_0x then
+		valid_length = valid_length or #hex == 3 or #hex == 4
+	end
+	if not valid_length then
 		return nil
 	end
 
-	hex = expand_hex(hex)
-	local r = tonumber(hex:sub(1, 2), 16)
-	local g = tonumber(hex:sub(3, 4), 16)
-	local b = tonumber(hex:sub(5, 6), 16)
-	local a = #hex == 8 and (tonumber(hex:sub(7, 8), 16) / 255) or 1
+	local r, g, b, a, fmt
+	if is_0x and #hex == 8 then
+		-- 0x-prefixed 8-digit colors are parsed as Android-style AARRGGBB.
+		-- Keep alpha as a normalized float so alpha_to_hex() can round-trip it.
+		a = tonumber(hex:sub(1, 2), 16) / 255
+		r = tonumber(hex:sub(3, 4), 16)
+		g = tonumber(hex:sub(5, 6), 16)
+		b = tonumber(hex:sub(7, 8), 16)
+		fmt = "argb0x"
+	else
+		hex = expand_hex(hex)
+		r = tonumber(hex:sub(1, 2), 16)
+		g = tonumber(hex:sub(3, 4), 16)
+		b = tonumber(hex:sub(5, 6), 16)
+		a = #hex == 8 and (tonumber(hex:sub(7, 8), 16) / 255) or 1
+		fmt = is_0x and "rgb0x" or (#hex == 8 and "hexa" or "hex")
+	end
 
-	return { r = r, g = g, b = b, a = a }, #hex == 8 and "hexa" or "hex"
+	return { r = r, g = g, b = b, a = a }, fmt
 end
 
 local function split_args(args)
@@ -419,7 +449,8 @@ end
 ---Parse a color from common authoring formats.
 ---
 ---Supported inputs include `#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`,
----`rgb()`, `rgba()`, `hsl()`, `hsla()`, `hsv()` and common CSS color names.
+---`0xrrggbb`, `0xaarrggbb`, `rgb()`, `rgba()`, `hsl()`, `hsla()`,
+---`hsv()` and common CSS color names.
 ---@param value string
 ---@return DotconfigColor? color
 ---@return string? format Detected format (`hex`, `rgb`, `hsl`, etc.).
@@ -457,9 +488,13 @@ function M.parse(value)
 	return nil, nil, ("could not parse color value: %s"):format(value)
 end
 
-local function percent(value) return tostring(round(value)) .. "%" end
+local function percent(value)
+	return tostring(round(value)) .. "%"
+end
 
-local function alpha_string(value) return ("%.2f"):format(round(value, 2)):gsub("0+$", ""):gsub("%.$", "") end
+local function alpha_string(value)
+	return ("%.2f"):format(round(value, 2)):gsub("0+$", ""):gsub("%.$", "")
+end
 
 ---Format a color for insertion/copying.
 ---@param c DotconfigColor
@@ -473,6 +508,10 @@ function M.format(c, fmt)
 		return M.to_hex(c, false)
 	elseif fmt == "hexa" then
 		return M.to_hex(c, true)
+	elseif fmt == "rgb0x" then
+		return "0x" .. component_to_hex(c.r) .. component_to_hex(c.g) .. component_to_hex(c.b)
+	elseif fmt == "argb0x" then
+		return "0x" .. alpha_to_hex(c.a) .. component_to_hex(c.r) .. component_to_hex(c.g) .. component_to_hex(c.b)
 	elseif fmt == "rgb" then
 		return ("rgb(%d, %d, %d)"):format(c.r, c.g, c.b)
 	elseif fmt == "rgba" then
@@ -589,13 +628,22 @@ function M.contrast(c)
 	return luminance > 0.5 and "#000000" or "#ffffff"
 end
 
+local overlaps
+
 local function add_match(matches, line, start_idx, end_idx)
+	local candidate = { start_col = start_idx - 1, end_col = end_idx }
+	for _, existing in ipairs(matches) do
+		if overlaps(candidate, existing) then
+			return
+		end
+	end
+
 	local text = line:sub(start_idx, end_idx)
 	local color, fmt = M.parse(text)
 	if color then
 		matches[#matches + 1] = {
-			start_col = start_idx - 1,
-			end_col = end_idx,
+			start_col = candidate.start_col,
+			end_col = candidate.end_col,
 			text = text,
 			color = color,
 			format = fmt,
@@ -603,7 +651,9 @@ local function add_match(matches, line, start_idx, end_idx)
 	end
 end
 
-local function overlaps(a, b) return a.start_col < b.end_col and b.start_col < a.end_col end
+function overlaps(a, b)
+	return a.start_col < b.end_col and b.start_col < a.end_col
+end
 
 ---Find parseable color literals in a single line of text.
 ---
@@ -615,6 +665,16 @@ function M.find_all(line)
 	local start = 1
 	while true do
 		local s, e = line:find("#%x+", start)
+		if not s then
+			break
+		end
+		add_match(matches, line, s, e)
+		start = e + 1
+	end
+
+	start = 1
+	while true do
+		local s, e = line:find("%f[%w_]0[xX]%x+%f[^%w_]", start)
 		if not s then
 			break
 		end
@@ -640,22 +700,14 @@ function M.find_all(line)
 		end
 		local name = line:sub(s, e):lower()
 		if M.names[name] then
-			local candidate = { start_col = s - 1, end_col = e }
-			local covered = false
-			for _, existing in ipairs(matches) do
-				if overlaps(candidate, existing) then
-					covered = true
-					break
-				end
-			end
-			if not covered then
-				add_match(matches, line, s, e)
-			end
+			add_match(matches, line, s, e)
 		end
 		start = e + 1
 	end
 
-	table.sort(matches, function(a, b) return a.start_col < b.start_col end)
+	table.sort(matches, function(a, b)
+		return a.start_col < b.start_col
+	end)
 	return matches
 end
 

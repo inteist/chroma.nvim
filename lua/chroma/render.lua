@@ -1,6 +1,6 @@
 ---Picker window rendering for the color picker.
 ---
----Owns the Snacks.win lifecycle (creation, keymap wiring) and the
+---Owns the Chroma floating-window lifecycle (creation, keymap wiring) and the
 ---line-by-line rendering of the color field, channel sliders, format list
 ---and preview swatch.
 
@@ -9,9 +9,9 @@ local geo = require("chroma.geometry")
 local hl_mod = require("chroma.highlights")
 local state_mod = require("chroma.state")
 local util = require("chroma.util")
+local window = require("chroma.window")
 
 local align = util.align
-local notify = util.notify
 
 local render_ns = vim.api.nvim_create_namespace("chroma_render")
 
@@ -217,7 +217,7 @@ local function build_model(state)
 		}
 	end
 
-	for row = 1, 10 do
+	for row = 1, math.max(10, #format_lines) do
 		add_split_line(lines, hls, format_lines[row] or { { "  " } }, preview, geo.LAYOUT_WIDTH)
 	end
 	add_split_line(lines, hls, { { "  " } }, { { string.rep(" ", geo.PREVIEW_WIDTH) } }, geo.LAYOUT_WIDTH)
@@ -315,64 +315,243 @@ end
 ---Create and show the picker window for the given state.
 ---@param state ChromaState
 function M.show(state)
-	local snacks = util.get_snacks()
-	if not (snacks and snacks.win) then
-		notify("Snacks.win is not available", "error")
-		return
-	end
-
 	-- Lazy-load palette module to avoid circular requires at file load time.
 	local palette = require("chroma.palette")
 
 	state_mod.set_current(state)
 
 	-- Wire the render method into the state so `state:render()` works.
-	function state:render() render(self) end
+	function state:render()
+		render(self)
+	end
 
-	state.win = snacks.win.new({
-		style = "color_picker",
+	hl_mod.ensure()
+	local cfg = state_mod.get_config()
+	local format_rows = math.max(10, #(cfg.format_order or color.formats) + 2)
+
+	state.win = window.new({
 		show = false,
 		text = { "" },
 		ft = "chroma",
-		height = geo.PICKER_HEIGHT,
+		height = geo.PICKER_HEIGHT + math.max(0, format_rows - 10),
 		footer = picker_footer(),
 		keys = {
-			q = { function() state:cancel() end, desc = "Cancel" },
-			["<esc>"] = { function() state:cancel() end, desc = "Cancel" },
-			["<cr>"] = { function() state:confirm() end, desc = "Apply" },
-			h = { function() state:adjust(-1) end, desc = "Left / Decrease" },
-			l = { function() state:adjust(1) end, desc = "Right / Increase" },
-			j = { function() state:adjust_vertical(1) end, desc = "Down / Next" },
-			k = { function() state:adjust_vertical(-1) end, desc = "Up / Previous" },
-			["<left>"] = { function() state:adjust(-1) end, desc = "Left / Decrease" },
-			["<right>"] = { function() state:adjust(1) end, desc = "Right / Increase" },
-			["<down>"] = { function() state:adjust_vertical(1) end, desc = "Down / Next" },
-			["<up>"] = { function() state:adjust_vertical(-1) end, desc = "Up / Previous" },
-			["<s-left>"] = { function() state:adjust(-1, true) end, desc = "Left ×3 / Decrease ×10" },
-			["<s-right>"] = { function() state:adjust(1, true) end, desc = "Right ×3 / Increase ×10" },
-			["<s-down>"] = { function() state:adjust_vertical(1, true) end, desc = "Down ×3" },
-			["<s-up>"] = { function() state:adjust_vertical(-1, true) end, desc = "Up ×3" },
-			["-"] = { function() state:adjust(-1, true) end, desc = "Decrease ×10" },
-			["+"] = { function() state:adjust(1, true) end, desc = "Increase ×10" },
-			["<tab>"] = { function() state:next_channel(1) end, desc = "Next Control" },
-			["<s-tab>"] = { function() state:next_channel(-1) end, desc = "Previous Control" },
-			c = { function() state:select_field() end, desc = "Color Field" },
-			H = { function() state:select_channel("h") end, desc = "Hue" },
-			S = { function() state:select_channel("s") end, desc = "Saturation" },
-			L = { function() state:select_channel("l") end, desc = "Lightness" },
-			R = { function() state:select_channel("r") end, desc = "Red" },
-			G = { function() state:select_channel("g") end, desc = "Green" },
-			B = { function() state:select_channel("b") end, desc = "Blue" },
-			A = { function() state:select_channel("a") end, desc = "Alpha" },
-			f = { function() state:cycle_format(1) end, desc = "Next Format" },
-			F = { function() state:cycle_format(-1) end, desc = "Previous Format" },
-			i = { function() state:prompt_value() end, desc = "Input Color" },
-			a = { function() state:prompt_save_palette() end, desc = "Save Palette" },
-			p = { function() palette.open({ state = state }) end, desc = "Palettes" },
-			r = { function() palette.open({ state = state, recents_only = true }) end, desc = "Recents" },
-			y = { function() state:copy() end, desc = "Copy" },
-			Y = { function() state:copy_all() end, desc = "Copy All" },
-			["?"] = { function(win) win:toggle_help({ col_width = 18, key_width = 12 }) end, desc = "Help" },
+			q = {
+				function()
+					state:cancel()
+				end,
+				desc = "Cancel",
+			},
+			["<esc>"] = {
+				function()
+					state:cancel()
+				end,
+				desc = "Cancel",
+			},
+			["<cr>"] = {
+				function()
+					state:confirm()
+				end,
+				desc = "Apply",
+			},
+			h = {
+				function()
+					state:adjust(-1)
+				end,
+				desc = "Left / Decrease",
+			},
+			l = {
+				function()
+					state:adjust(1)
+				end,
+				desc = "Right / Increase",
+			},
+			j = {
+				function()
+					state:adjust_vertical(1)
+				end,
+				desc = "Down / Next",
+			},
+			k = {
+				function()
+					state:adjust_vertical(-1)
+				end,
+				desc = "Up / Previous",
+			},
+			["<left>"] = {
+				function()
+					state:adjust(-1)
+				end,
+				desc = "Left / Decrease",
+			},
+			["<right>"] = {
+				function()
+					state:adjust(1)
+				end,
+				desc = "Right / Increase",
+			},
+			["<down>"] = {
+				function()
+					state:adjust_vertical(1)
+				end,
+				desc = "Down / Next",
+			},
+			["<up>"] = {
+				function()
+					state:adjust_vertical(-1)
+				end,
+				desc = "Up / Previous",
+			},
+			["<s-left>"] = {
+				function()
+					state:adjust(-1, true)
+				end,
+				desc = "Left ×3 / Decrease ×10",
+			},
+			["<s-right>"] = {
+				function()
+					state:adjust(1, true)
+				end,
+				desc = "Right ×3 / Increase ×10",
+			},
+			["<s-down>"] = {
+				function()
+					state:adjust_vertical(1, true)
+				end,
+				desc = "Down ×3",
+			},
+			["<s-up>"] = {
+				function()
+					state:adjust_vertical(-1, true)
+				end,
+				desc = "Up ×3",
+			},
+			["-"] = {
+				function()
+					state:adjust(-1, true)
+				end,
+				desc = "Decrease ×10",
+			},
+			["+"] = {
+				function()
+					state:adjust(1, true)
+				end,
+				desc = "Increase ×10",
+			},
+			["<tab>"] = {
+				function()
+					state:next_channel(1)
+				end,
+				desc = "Next Control",
+			},
+			["<s-tab>"] = {
+				function()
+					state:next_channel(-1)
+				end,
+				desc = "Previous Control",
+			},
+			c = {
+				function()
+					state:select_field()
+				end,
+				desc = "Color Field",
+			},
+			H = {
+				function()
+					state:select_channel("h")
+				end,
+				desc = "Hue",
+			},
+			S = {
+				function()
+					state:select_channel("s")
+				end,
+				desc = "Saturation",
+			},
+			L = {
+				function()
+					state:select_channel("l")
+				end,
+				desc = "Lightness",
+			},
+			R = {
+				function()
+					state:select_channel("r")
+				end,
+				desc = "Red",
+			},
+			G = {
+				function()
+					state:select_channel("g")
+				end,
+				desc = "Green",
+			},
+			B = {
+				function()
+					state:select_channel("b")
+				end,
+				desc = "Blue",
+			},
+			A = {
+				function()
+					state:select_channel("a")
+				end,
+				desc = "Alpha",
+			},
+			f = {
+				function()
+					state:cycle_format(1)
+				end,
+				desc = "Next Format",
+			},
+			F = {
+				function()
+					state:cycle_format(-1)
+				end,
+				desc = "Previous Format",
+			},
+			i = {
+				function()
+					state:prompt_value()
+				end,
+				desc = "Input Color",
+			},
+			a = {
+				function()
+					state:prompt_save_palette()
+				end,
+				desc = "Save Palette",
+			},
+			p = {
+				function()
+					palette.open({ state = state })
+				end,
+				desc = "Palettes",
+			},
+			r = {
+				function()
+					palette.open({ state = state, recents_only = true })
+				end,
+				desc = "Recents",
+			},
+			y = {
+				function()
+					state:copy()
+				end,
+				desc = "Copy",
+			},
+			Y = {
+				function()
+					state:copy_all()
+				end,
+				desc = "Copy All",
+			},
+			["?"] = {
+				function(win)
+					win:toggle_help({ col_width = 18, key_width = 12 })
+				end,
+				desc = "Help",
+			},
 		},
 		on_close = function()
 			if state_mod.current() == state and not state.closed then

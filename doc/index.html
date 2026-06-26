@@ -1,0 +1,2444 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chroma.nvim - Interactive Documentation & Summary</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <style>
+      :root {
+        --bg-dark: #090d16;
+        --bg-card: #131a26;
+        --bg-input: #1b2434;
+        --border-color: #2b384e;
+        --border-focus: #3b82f6;
+        --text-main: #f1f5f9;
+        --text-muted: #94a3b8;
+        --primary: #3b82f6;
+        --primary-glow: rgba(59, 130, 246, 0.4);
+        --accent: #10b981;
+        --accent-glow: rgba(16, 185, 129, 0.4);
+        --success: #10b981;
+        --warning: #f59e0b;
+        --font-sans:
+          "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        --font-mono: "Fira Code", "Courier New", Courier, monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        background-color: var(--bg-dark);
+        color: var(--text-main);
+        font-family: var(--font-sans);
+        line-height: 1.6;
+        overflow-x: hidden;
+        background-image:
+          radial-gradient(
+            circle at 10% 20%,
+            rgba(59, 130, 246, 0.08) 0%,
+            transparent 40%
+          ),
+          radial-gradient(
+            circle at 90% 80%,
+            rgba(16, 185, 129, 0.08) 0%,
+            transparent 40%
+          );
+      }
+
+      /* Scrollbars */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: var(--bg-dark);
+      }
+      ::-webkit-scrollbar-thumb {
+        background: var(--border-color);
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: var(--text-muted);
+      }
+
+      header {
+        border-bottom: 1px solid var(--border-color);
+        padding: 2.5rem 1.5rem;
+        text-align: center;
+        background: rgba(19, 26, 38, 0.6);
+        backdrop-filter: blur(12px);
+        position: sticky;
+        top: 0;
+        z-index: 100;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+      }
+
+      .header-logo {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.5rem;
+      }
+
+      .logo-box {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, var(--primary), var(--accent));
+        box-shadow: 0 0 15px var(--primary-glow);
+        position: relative;
+        animation: rotate-logo 6s linear infinite;
+      }
+
+      @keyframes rotate-logo {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      h1 {
+        font-size: 2.25rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #60a5fa, #34d399);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        letter-spacing: -0.05em;
+      }
+
+      .subtitle {
+        color: var(--text-muted);
+        font-size: 1.1rem;
+        margin-top: 0.25rem;
+        font-weight: 400;
+      }
+
+      .badge-container {
+        display: flex;
+        justify-content: center;
+        gap: 0.75rem;
+        margin-top: 1rem;
+      }
+
+      .badge {
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        background: var(--bg-input);
+        border: 1px solid var(--border-color);
+        color: var(--text-main);
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+      }
+
+      .badge-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background-color: var(--primary);
+      }
+      .badge-dot.accent {
+        background-color: var(--accent);
+      }
+      .badge-dot.green {
+        background-color: var(--success);
+      }
+
+      /* Layout Grid removed for full-width linear layout */
+
+      /* Cards */
+      .card {
+        background-color: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 1.75rem;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        transition:
+          border-color 0.3s ease,
+          box-shadow 0.3s ease;
+      }
+
+      .card:hover {
+        border-color: rgba(59, 130, 246, 0.3);
+        box-shadow: 0 4px 25px rgba(59, 130, 246, 0.05);
+      }
+
+      .card-title {
+        font-size: 1.3rem;
+        font-weight: 700;
+        margin-bottom: 1.25rem;
+        color: var(--text-main);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 0.5rem;
+      }
+
+      .card-title svg {
+        color: var(--primary);
+        width: 20px;
+        height: 20px;
+      }
+
+      /* Overview Styles */
+      p {
+        color: var(--text-muted);
+        margin-bottom: 1.25rem;
+        font-size: 0.975rem;
+      }
+
+      strong {
+        color: var(--text-main);
+      }
+
+      .feature-list {
+        list-style: none;
+        margin-bottom: 1.5rem;
+      }
+
+      .feature-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+        color: var(--text-muted);
+        font-size: 0.95rem;
+      }
+
+      .feature-icon {
+        color: var(--success);
+        margin-top: 0.15rem;
+        flex-shrink: 0;
+      }
+
+      /* Neovim UI Simulator styling */
+      .neovim-container {
+        background-color: #0b0f19;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        font-family: var(--font-mono);
+        overflow: hidden;
+        position: relative;
+      }
+
+      .neovim-header {
+        background-color: #1e293b;
+        border-bottom: 1px solid #334155;
+        padding: 0.5rem 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.8rem;
+        color: #94a3b8;
+      }
+
+      .neovim-tabs {
+        display: flex;
+        gap: 0.25rem;
+      }
+
+      .neovim-tab {
+        background-color: #0b0f19;
+        border: 1px solid #334155;
+        border-bottom: none;
+        border-top-left-radius: 4px;
+        border-top-right-radius: 4px;
+        padding: 0.25rem 0.75rem;
+        cursor: pointer;
+        color: #64748b;
+        font-size: 0.75rem;
+        transition: all 0.2s ease;
+      }
+
+      .neovim-tab.active {
+        background-color: #131a26;
+        border-color: #475569;
+        color: #3b82f6;
+        font-weight: bold;
+      }
+
+      .neovim-body {
+        background-color: #111724;
+        padding: 1rem;
+        min-height: 480px;
+      }
+
+      /* Inner UI picker screen */
+      .picker-screen {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+
+      .top-layout {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr;
+        gap: 1rem;
+      }
+
+      .format-pane {
+        background-color: #161e2e;
+        border: 1px solid #2d3748;
+        border-radius: 6px;
+        padding: 0.75rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+      }
+
+      .pane-title {
+        font-size: 0.75rem;
+        color: var(--accent);
+        border-bottom: 1px dotted #475569;
+        padding-bottom: 0.25rem;
+        margin-bottom: 0.25rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .format-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.75rem;
+        padding: 0.15rem 0.25rem;
+        border-radius: 3px;
+        cursor: pointer;
+      }
+
+      .format-row:hover {
+        background-color: rgba(255, 255, 255, 0.03);
+      }
+
+      .format-row.active {
+        background-color: rgba(59, 130, 246, 0.1);
+        color: #60a5fa;
+      }
+
+      .radio-circle {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        border: 1px solid #475569;
+        display: inline-block;
+        flex-shrink: 0;
+        position: relative;
+      }
+
+      .format-row.active .radio-circle {
+        border-color: #3b82f6;
+        background-color: #3b82f6;
+        box-shadow: 0 0 5px #3b82f6;
+      }
+
+      .format-lbl {
+        width: 75px;
+        color: #e2e8f0;
+      }
+
+      .format-row.active .format-lbl {
+        color: #60a5fa;
+        font-weight: bold;
+      }
+
+      .format-val {
+        color: #8492a6;
+        word-break: break-all;
+        flex-grow: 1;
+        text-align: right;
+      }
+
+      .format-row.active .format-val {
+        color: #f1f5f9;
+      }
+
+      .preview-pane {
+        background-color: #161e2e;
+        border: 1px solid #2d3748;
+        border-radius: 6px;
+        padding: 0.75rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+      }
+
+      .swatch-block {
+        width: 100%;
+        height: 100px;
+        border-radius: 4px;
+        border: 1px solid #334155;
+        box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
+        position: relative;
+        background-image:
+          linear-gradient(45deg, #111 25%, transparent 25%),
+          linear-gradient(-45deg, #111 25%, transparent 25%),
+          linear-gradient(45deg, transparent 75%, #111 75%),
+          linear-gradient(-45deg, transparent 75%, #111 75%);
+        background-size: 16px 16px;
+        background-position:
+          0 0,
+          0 8px,
+          8px -8px,
+          -8px 0px;
+      }
+
+      .swatch-color {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        border-radius: 3px;
+      }
+
+      .preview-hex {
+        background-color: #0b0f19;
+        color: #38bdf8;
+        font-size: 0.8rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 3px;
+        border: 1px solid #334155;
+        width: 100%;
+        text-align: center;
+      }
+
+      /* Grid Field styling */
+      .color-field-container {
+        background-color: #161e2e;
+        border: 1px solid #2d3748;
+        border-radius: 6px;
+        padding: 0.75rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      .field-caption {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.75rem;
+      }
+
+      .field-label {
+        color: #f1f5f9;
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+      }
+
+      .field-desc {
+        color: #64748b;
+      }
+
+      .canvas-wrapper {
+        position: relative;
+        cursor: crosshair;
+        border-radius: 4px;
+        overflow: hidden;
+        border: 1px solid #334155;
+      }
+
+      #color-field {
+        width: 100%;
+        height: 140px;
+        display: block;
+      }
+
+      /* Sliders styling */
+      .sliders-container {
+        background-color: #161e2e;
+        border: 1px solid #2d3748;
+        border-radius: 6px;
+        padding: 0.75rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+      }
+
+      .slider-row {
+        display: grid;
+        grid-template-columns: 80px 1fr 45px;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 0.75rem;
+      }
+
+      .slider-lbl {
+        color: #94a3b8;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+      }
+
+      .slider-shortcut {
+        color: var(--accent);
+        font-weight: bold;
+      }
+
+      .slider-input-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+      }
+
+      .picker-slider {
+        -webkit-appearance: none;
+        width: 100%;
+        height: 8px;
+        border-radius: 4px;
+        background: #111724;
+        outline: none;
+        border: 1px solid #334155;
+        cursor: pointer;
+      }
+
+      .picker-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #fff;
+        border: 1.5px solid #2563eb;
+        cursor: pointer;
+        box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+        transition: transform 0.1s ease;
+      }
+
+      .picker-slider::-webkit-slider-thumb:hover {
+        transform: scale(1.2);
+      }
+
+      #hue-slider {
+        background: linear-gradient(
+          to right,
+          #ff0000 0%,
+          #ffff00 17%,
+          #00ff00 33%,
+          #00ffff 50%,
+          #0000ff 67%,
+          #ff00ff 83%,
+          #ff0000 100%
+        );
+      }
+
+      .checkerboard-bg {
+        background-image:
+          linear-gradient(45deg, #222 25%, transparent 25%),
+          linear-gradient(-45deg, #222 25%, transparent 25%),
+          linear-gradient(45deg, transparent 75%, #222 75%),
+          linear-gradient(-45deg, transparent 75%, #222 75%);
+        background-size: 8px 8px;
+        background-position:
+          0 0,
+          0 4px,
+          4px -4px,
+          -4px 0px;
+        border-radius: 4px;
+        width: 100%;
+        height: 8px;
+        display: flex;
+        align-items: center;
+        position: relative;
+      }
+
+      .checkerboard-bg .picker-slider {
+        position: absolute;
+        top: 0;
+        left: 0;
+        background: transparent;
+        border: none;
+      }
+
+      .slider-val {
+        color: #60a5fa;
+        text-align: right;
+      }
+
+      /* Palette Tab UI representation */
+      .palette-screen {
+        display: none;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+
+      .palette-info {
+        font-size: 0.725rem;
+        color: #94a3b8;
+        background-color: #1e293b;
+        padding: 0.4rem 0.75rem;
+        border-radius: 4px;
+        border-left: 3px solid #3b82f6;
+      }
+
+      .dual-pane-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1px;
+        background-color: #2d3748;
+        border: 1px solid #334155;
+        border-radius: 6px;
+        overflow: hidden;
+        height: 320px;
+      }
+
+      .palette-pane {
+        background-color: #111724;
+        overflow-y: auto;
+        padding: 0.5rem 0;
+      }
+
+      .palette-table-row {
+        display: flex;
+        align-items: center;
+        font-size: 0.7rem;
+        padding: 0.35rem 0.75rem;
+        cursor: pointer;
+        border-left: 2px solid transparent;
+        color: #cbd5e1;
+      }
+
+      .palette-table-row:hover {
+        background-color: rgba(255, 255, 255, 0.03);
+      }
+
+      .palette-table-row.active {
+        background-color: rgba(59, 130, 246, 0.1);
+        border-left-color: #3b82f6;
+        color: #3b82f6;
+      }
+
+      .mini-swatch {
+        width: 14px;
+        height: 14px;
+        border-radius: 2px;
+        border: 1px solid #334155;
+        margin-right: 0.5rem;
+        flex-shrink: 0;
+      }
+
+      .palette-section-title {
+        font-size: 0.65rem;
+        color: #64748b;
+        padding: 0.5rem 0.75rem 0.25rem 0.75rem;
+        text-transform: uppercase;
+        font-weight: bold;
+        letter-spacing: 0.05em;
+      }
+
+      .label-input {
+        background-color: transparent;
+        border: 1px solid transparent;
+        color: #f1f5f9;
+        font-family: var(--font-mono);
+        font-size: 0.7rem;
+        width: 100%;
+        padding: 0.1rem 0.25rem;
+        border-radius: 2px;
+      }
+
+      .label-input:focus {
+        background-color: #1e293b;
+        border-color: #475569;
+        outline: none;
+      }
+
+      .palette-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+      }
+
+      .btn {
+        background-color: #1e293b;
+        border: 1px solid #334155;
+        color: #e2e8f0;
+        padding: 0.35rem 0.75rem;
+        border-radius: 4px;
+        font-size: 0.725rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        transition: all 0.2s ease;
+      }
+
+      .btn:hover {
+        background-color: #334155;
+        border-color: #475569;
+      }
+
+      .btn-primary {
+        background-color: #2563eb;
+        border-color: #3b82f6;
+        color: #fff;
+      }
+
+      .btn-primary:hover {
+        background-color: #1d4ed8;
+        border-color: #2563eb;
+        box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);
+      }
+
+      /* Vim status bar / footer simulation */
+      .neovim-footer {
+        background-color: #1e293b;
+        border-top: 1px solid #334155;
+        padding: 0.35rem 0.75rem;
+        font-size: 0.65rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        color: #94a3b8;
+      }
+
+      .status-left {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .status-mode {
+        background-color: var(--accent);
+        color: #0f172a;
+        font-weight: bold;
+        padding: 0.05rem 0.35rem;
+        border-radius: 2px;
+        text-transform: uppercase;
+      }
+
+      .status-msg {
+        color: #34d399;
+        font-style: italic;
+        animation: fade-out 3s forwards;
+      }
+
+      .footer-help {
+        color: #64748b;
+        display: flex;
+        gap: 0.6rem;
+      }
+
+      .key-btn {
+        color: #f1f5f9;
+        background-color: #0f172a;
+        padding: 0.05rem 0.25rem;
+        border-radius: 2px;
+        border: 1px solid #334155;
+      }
+
+      /* Architecture diagram styling */
+      .arch-container {
+        margin-top: 2rem;
+      }
+
+      .arch-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1.25rem;
+        position: relative;
+      }
+
+      .arch-node {
+        background-color: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 1.25rem;
+        position: relative;
+        transition: all 0.3s ease;
+      }
+
+      .arch-node::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--primary), var(--accent));
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+      }
+
+      .arch-node:hover {
+        transform: translateY(-2px);
+        border-color: var(--primary);
+        box-shadow: 0 5px 15px rgba(59, 130, 246, 0.1);
+      }
+
+      .arch-title {
+        font-family: var(--font-mono);
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #60a5fa;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+      }
+
+      .arch-desc {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+      }
+
+      /* Code Block Styles */
+      .code-container {
+        position: relative;
+        margin-bottom: 1.5rem;
+      }
+
+      pre {
+        background-color: #0b0f19;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 1.25rem;
+        overflow-x: auto;
+        font-family: var(--font-mono);
+        font-size: 0.85rem;
+        color: #e2e8f0;
+      }
+
+      .copy-btn {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        background-color: var(--bg-card);
+        border: 1px solid var(--border-color);
+        color: var(--text-muted);
+        width: 28px;
+        height: 28px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .copy-btn:hover {
+        background-color: var(--border-color);
+        color: var(--text-main);
+      }
+
+      .copy-btn svg {
+        width: 14px;
+        height: 14px;
+        fill: currentColor;
+      }
+
+      /* Tabbed interface for installation/documentation sections */
+      .doc-tabs {
+        display: flex;
+        border-bottom: 1px solid var(--border-color);
+        margin-bottom: 1.25rem;
+      }
+
+      .doc-tab {
+        padding: 0.5rem 1.25rem;
+        cursor: pointer;
+        color: var(--text-muted);
+        border-bottom: 2px solid transparent;
+        font-weight: 500;
+        font-size: 0.95rem;
+        transition: all 0.2s ease;
+      }
+
+      .doc-tab:hover {
+        color: var(--text-main);
+      }
+
+      .doc-tab.active {
+        color: var(--primary);
+        border-bottom-color: var(--primary);
+      }
+
+      .doc-content {
+        display: none;
+      }
+
+      .doc-content.active {
+        display: block;
+      }
+
+      /* Highlight group definitions table */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+        margin-bottom: 1rem;
+      }
+
+      th,
+      td {
+        border: 1px solid var(--border-color);
+        padding: 0.6rem 0.8rem;
+        text-align: left;
+      }
+
+      th {
+        background-color: var(--bg-input);
+        color: var(--text-main);
+        font-weight: 600;
+      }
+
+      td:first-child {
+        font-family: var(--font-mono);
+        color: #60a5fa;
+      }
+
+      /* Keyboard binds grid */
+      .kb-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1rem;
+      }
+
+      .kb-row {
+        display: flex;
+        justify-content: space-between;
+        border-bottom: 1px dotted var(--border-color);
+        padding-bottom: 0.4rem;
+        font-size: 0.85rem;
+      }
+
+      .kb-keys {
+        font-family: var(--font-mono);
+        display: flex;
+        gap: 0.35rem;
+      }
+
+      .kb-key {
+        background-color: var(--bg-input);
+        border: 1px solid var(--border-color);
+        color: #34d399;
+        padding: 0.05rem 0.35rem;
+        border-radius: 3px;
+        box-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+      }
+
+      .kb-desc {
+        color: var(--text-muted);
+      }
+
+      footer.site-footer {
+        border-top: 1px solid var(--border-color);
+        margin-top: 4rem;
+        padding: 2rem 1.5rem;
+        text-align: center;
+        font-size: 0.8rem;
+        color: var(--text-muted);
+      }
+
+      .hl-keyword {
+        color: #f43f5e;
+      }
+      .hl-string {
+        color: #10b981;
+      }
+      .hl-comment {
+        color: #64748b;
+        font-style: italic;
+      }
+      .hl-func {
+        color: #eab308;
+      }
+      .hl-type {
+        color: #06b6d4;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="header-logo">
+        <div class="logo-box"></div>
+        <h1>Chroma.nvim</h1>
+      </div>
+      <div class="subtitle">
+        A self-contained, high-performance floating color picker for Neovim
+        0.10+
+      </div>
+      <div class="badge-container">
+        <span class="badge"><span class="badge-dot"></span> Neovim 0.10+</span>
+        <span class="badge"
+          ><span class="badge-dot accent"></span> Zero Runtime
+          Dependencies</span
+        >
+        <span class="badge"
+          ><span class="badge-dot green"></span> Self-Contained Float UI</span
+        >
+      </div>
+    </header>
+
+    <div class="container">
+      <!-- Section: Overview & Core Features -->
+      <div class="card">
+        <div class="card-title">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M11.25 11.25l.041-.02a.75.75 0 11.263 1.27l-.042.02a.75.75 0 01-.263-1.27zM11.25 15.75l.041-.02a.75.75 0 11.263 1.27l-.042.02a.75.75 0 01-.263-1.27zM21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+          Overview & Core Features
+        </div>
+        <p>
+          <strong>Chroma.nvim</strong> is an interactive color picker written
+          entirely in Lua. Originally designed for custom configurations, it was
+          extracted into a standalone plugin to provide a rich UI experience
+          with zero runtime dependency bloat.
+        </p>
+        <ul class="feature-list">
+          <li class="feature-item">
+            <svg
+              class="feature-icon"
+              width="16"
+              height="16"
+              fill="currentColor"
+              viewBox="0 0 16 16"
+            >
+              <path
+                d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425a.247.247 0 0 1 .02-.022z"
+              />
+            </svg>
+            <span
+              ><strong>Interactive RGB/HSL/Alpha Field</strong>: Navigate a
+              60x12 saturation-value grid and adjust hue, saturation, lightness,
+              red, green, blue, and alpha sliders with real-time updates.</span
+            >
+          </li>
+          <li class="feature-item">
+            <svg
+              class="feature-icon"
+              width="16"
+              height="16"
+              fill="currentColor"
+              viewBox="0 0 16 16"
+            >
+              <path
+                d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425a.247.247 0 0 1 .02-.022z"
+              />
+            </svg>
+            <span
+              ><strong>Smart Target Detection</strong>: Open the picker
+              pre-seeded with the color literal directly under your cursor or
+              visual selection (supports CSS hex, rgb, rgba, hsl, hsla, hsv, and
+              standard names).</span
+            >
+          </li>
+          <li class="feature-item">
+            <svg
+              class="feature-icon"
+              width="16"
+              height="16"
+              fill="currentColor"
+              viewBox="0 0 16 16"
+            >
+              <path
+                d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425a.247.247 0 0 1 .02-.022z"
+              />
+            </svg>
+            <span
+              ><strong>Dual-Pane Palette & Recents Manager</strong>: Browse,
+              edit labels inline, and select colors from saved palettes or
+              recents. Left/right panes are bound dynamically with cursor and
+              scroll linkages.</span
+            >
+          </li>
+          <li class="feature-item">
+            <svg
+              class="feature-icon"
+              width="16"
+              height="16"
+              fill="currentColor"
+              viewBox="0 0 16 16"
+            >
+              <path
+                d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425a.247.247 0 0 1 .02-.022z"
+              />
+            </svg>
+            <span
+              ><strong>Live Editor Replacements</strong>: Highlights and
+              replaces code color literals in the source buffer in real-time as
+              you tweak values in the floating window.</span
+            >
+          </li>
+        </ul>
+      </div>
+
+      <!-- Section: Configuration & APIs -->
+      <div class="card">
+        <div class="card-title">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25"
+            />
+          </svg>
+          Configuration & APIs
+        </div>
+
+        <div class="doc-tabs">
+          <div class="doc-tab active" onclick="switchDocTab('install-lazy')">
+            Installation
+          </div>
+          <div class="doc-tab" onclick="switchDocTab('commands-api')">
+            Commands & Lua API
+          </div>
+          <div class="doc-tab" onclick="switchDocTab('highlights-api')">
+            Highlight Groups
+          </div>
+        </div>
+
+        <!-- Install Tab -->
+        <div id="install-lazy" class="doc-content active">
+          <p>
+            Install via <code>lazy.nvim</code>. Use the <code>opts</code> block
+            to customize the persistent store.
+          </p>
+          <div class="code-container">
+            <button class="copy-btn" onclick="copyCode(this)" title="Copy Code">
+              <svg viewBox="0 0 24 24">
+                <path
+                  d="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z"
+                />
+              </svg>
+            </button>
+            <pre><code>{
+  <span class="hl-string">"inteist/chroma.nvim"</span>,
+  <span class="hl-func">opts</span> = {
+    store = {
+      max_recents = <span class="hl-type">40</span>, <span class="hl-comment">-- limit of recently selected colors saved</span>
+    },
+  },
+}</code></pre>
+          </div>
+        </div>
+
+        <!-- Commands & API Tab -->
+        <div id="commands-api" class="doc-content">
+          <p>
+            Ergonomic commands mirror keymaps for usability in scripts and
+            command autocomplete:
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>Command</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>:ColorPicker [color]</td>
+                <td>Open Chroma, optionally seeded with a color literal.</td>
+              </tr>
+              <tr>
+                <td>:ColorPickerCursor</td>
+                <td>
+                  Open picker for the color under the cursor or selection.
+                </td>
+              </tr>
+              <tr>
+                <td>:ColorPickerInput</td>
+                <td>Prompt for a color string, then open the picker.</td>
+              </tr>
+              <tr>
+                <td>:ColorPickerPalettes</td>
+                <td>Open the saved color palettes manager.</td>
+              </tr>
+              <tr>
+                <td>:ColorPickerRecents</td>
+                <td>Open recently used colors.</td>
+              </tr>
+              <tr>
+                <td>:ColorPickerCopy [fmt]</td>
+                <td>Copy color under cursor/selection in a specific format.</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p>Lua modules export complete configurations and control handles:</p>
+          <div class="code-container">
+            <button class="copy-btn" onclick="copyCode(this)" title="Copy Code">
+              <svg viewBox="0 0 24 24">
+                <path
+                  d="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z"
+                />
+              </svg>
+            </button>
+            <pre><code><span class="hl-keyword">local</span> chroma = <span class="hl-func">require</span>(<span class="hl-string">"chroma"</span>)
+
+<span class="hl-comment">-- Initialize configurations</span>
+chroma.<span class="hl-func">setup</span>({ store = { max_recents = <span class="hl-type">40</span> } })
+
+<span class="hl-comment">-- Lua functions</span>
+chroma.<span class="hl-func">open</span>()
+chroma.<span class="hl-func">open</span>({ value = <span class="hl-string">"#ff00ff"</span> })
+chroma.<span class="hl-func">open_under_cursor</span>({ selection = <span class="hl-type">false</span> })
+chroma.<span class="hl-func">copy_under_cursor</span>({ format = <span class="hl-string">"hex"</span> })
+chroma.<span class="hl-func">palettes</span>()</code></pre>
+          </div>
+        </div>
+
+        <!-- Highlight Groups Tab -->
+        <div id="highlights-api" class="doc-content">
+          <p>
+            Chroma sets up semantic highlight groups that automatically sync on
+            colorscheme switches:
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>Highlight Group</th>
+                <th>Default Link / Styling</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>ChromaNormal</td>
+                <td>Linked to <code>NormalFloat</code> (Main panel text)</td>
+              </tr>
+              <tr>
+                <td>ChromaBorder</td>
+                <td>Linked to <code>FloatBorder</code> (Panel outlines)</td>
+              </tr>
+              <tr>
+                <td>ChromaTitle</td>
+                <td>Linked to <code>FloatTitle</code> (Header indicators)</td>
+              </tr>
+              <tr>
+                <td>ChromaAccent</td>
+                <td>
+                  Linked to <code>Directory</code> (Highlighted selections)
+                </td>
+              </tr>
+              <tr>
+                <td>ChromaActive</td>
+                <td>
+                  Linked to <code>PmenuSel</code> (Currently focused channel
+                  text)
+                </td>
+              </tr>
+              <tr>
+                <td>ChromaValue</td>
+                <td>
+                  Linked to <code>Number</code> (Color channel numerical value)
+                </td>
+              </tr>
+              <tr>
+                <td>ChromaMuted</td>
+                <td>
+                  Linked to <code>Comment</code> (Dimmed helper instructions)
+                </td>
+              </tr>
+              <tr>
+                <td>ChromaFooterKey</td>
+                <td>Linked to <code>Keyword</code> (Footer shortcuts)</td>
+              </tr>
+              <tr>
+                <td>ChromaFooterDesc</td>
+                <td>
+                  Linked to <code>Comment</code> (Footer shortcut descriptions)
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Section: Keyboard Navigation -->
+      <div class="card">
+        <div class="card-title">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5M9 11.25v1.5M12 9v3.75m3-6v6"
+            />
+          </svg>
+          Keyboard Navigation Cheat Sheet
+        </div>
+
+        <div class="kb-grid">
+          <div>
+            <h3
+              style="
+                color: #60a5fa;
+                font-size: 0.95rem;
+                margin-bottom: 0.75rem;
+                border-bottom: 1px solid var(--border-color);
+                padding-bottom: 0.25rem;
+              "
+            >
+              Main Color Picker UI
+            </h3>
+            <div class="kb-row">
+              <span class="kb-keys"
+                ><span class="kb-key">h</span> <span class="kb-key">j</span>
+                <span class="kb-key">k</span>
+                <span class="kb-key">l</span></span
+              >
+              <span class="kb-desc"
+                >Move cursor in color field grid / adjust slider channels</span
+              >
+            </div>
+            <div class="kb-row">
+              <span class="kb-keys"><span class="kb-key">tab</span></span>
+              <span class="kb-desc"
+                >Cycle focus between Color Field & sliders</span
+              >
+            </div>
+            <div class="kb-row">
+              <span class="kb-keys"
+                ><span class="kb-key">H</span> <span class="kb-key">S</span>
+                <span class="kb-key">L</span> <span class="kb-key">R</span>
+                <span class="kb-key">G</span> <span class="kb-key">B</span>
+                <span class="kb-key">A</span></span
+              >
+              <span class="kb-desc"
+                >Directly focus slider for Hue, Sat, Light, Red, Green, Blue,
+                Alpha</span
+              >
+            </div>
+            <div class="kb-row">
+              <span class="kb-keys"><span class="kb-key">f</span></span>
+              <span class="kb-desc">Cycle output formats list on the left</span>
+            </div>
+            <div class="kb-row">
+              <span class="kb-keys"><span class="kb-key">i</span></span>
+              <span class="kb-desc"
+                >Open prompt to insert custom color value manually</span
+              >
+            </div>
+            <div class="kb-row">
+              <span class="kb-keys"><span class="kb-key">y</span></span>
+              <span class="kb-desc"
+                >Yank current color formatting to clipboard</span
+              >
+            </div>
+            <div class="kb-row">
+              <span class="kb-keys"><span class="kb-key">enter</span></span>
+              <span class="kb-desc"
+                >Confirm color selection (saves to recents and closes)</span
+              >
+            </div>
+            <div class="kb-row">
+              <span class="kb-keys"
+                ><span class="kb-key">q</span>
+                <span class="kb-key">esc</span></span
+              >
+              <span class="kb-desc">Wipe UI buffer and abort selections</span>
+            </div>
+          </div>
+
+          <div>
+            <h3
+              style="
+                color: #34d399;
+                font-size: 0.95rem;
+                margin-bottom: 0.75rem;
+                border-bottom: 1px solid var(--border-color);
+                padding-bottom: 0.25rem;
+              "
+            >
+              Palette / Recents Manager UI
+            </h3>
+            <div class="kb-row">
+              <span class="kb-keys"><span class="kb-key">tab</span></span>
+              <span class="kb-desc"
+                >Cycle cursor between Left (color list) and Right (labels list)
+                panes</span
+              >
+            </div>
+            <div class="kb-row">
+              <span class="kb-keys"
+                ><span class="kb-key">j</span>
+                <span class="kb-key">k</span></span
+              >
+              <span class="kb-desc"
+                >Move up/down (panes linkage scrolls & moves cursor in
+                sync!)</span
+              >
+            </div>
+            <div class="kb-row">
+              <span class="kb-keys"
+                ><span class="kb-key">i</span> /
+                <span class="kb-key">A</span></span
+              >
+              <span class="kb-desc"
+                >Trigger edit mode on focused label inside the right pane</span
+              >
+            </div>
+            <div class="kb-row">
+              <span class="kb-keys"><span class="kb-key">:w</span></span>
+              <span class="kb-desc"
+                >Save modified label strings to JSON file on disk</span
+              >
+            </div>
+            <div class="kb-row">
+              <span class="kb-keys"><span class="kb-key">y</span></span>
+              <span class="kb-desc"
+                >Yank color of the selected entry directly</span
+              >
+            </div>
+            <div class="kb-row">
+              <span class="kb-keys"><span class="kb-key">enter</span></span>
+              <span class="kb-desc"
+                >Load selected color back into main color picker</span
+              >
+            </div>
+            <div class="kb-row">
+              <span class="kb-keys"><span class="kb-key">q</span></span>
+              <span class="kb-desc">Close palettes manager window</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section: Neovim Interactive Simulator -->
+      <div class="card" style="padding: 1.75rem">
+        <div class="card-title" style="margin-bottom: 0.75rem">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.64 8.38a14.98 14.98 0 00-6.16 12.12A14.98 14.98 0 0015.59 14.37z"
+            />
+          </svg>
+          Chroma Floating UI Simulator
+        </div>
+        <p style="font-size: 0.85rem; margin-bottom: 0.75rem">
+          Experience the identical layout of the Neovim float UI inside your
+          browser! Click or drag across the grid/sliders, edit saved palette
+          labels, and toggle formats.
+        </p>
+
+        <div class="neovim-container">
+          <div class="neovim-header">
+            <div class="neovim-tabs">
+              <div
+                id="tab-picker"
+                class="neovim-tab active"
+                onclick="switchNeovimTab('picker')"
+              >
+                Main Picker
+              </div>
+              <div
+                id="tab-palettes"
+                class="neovim-tab"
+                onclick="switchNeovimTab('palettes')"
+              >
+                Palette Manager
+              </div>
+            </div>
+            <div style="font-size: 0.7rem; color: #475569">90 x 24 [FLOAT]</div>
+          </div>
+
+          <!-- Neovim Body -->
+          <div class="neovim-body">
+            <!-- PICKER TAB CONTENT -->
+            <div id="nv-picker" class="picker-screen">
+              <div class="top-layout">
+                <!-- Formats list left pane -->
+                <div class="format-pane">
+                  <div class="pane-title">Supported Formats</div>
+                  <div
+                    id="fmt-hex"
+                    class="format-row active"
+                    onclick="selectFormat('hex')"
+                  >
+                    <span class="radio-circle"></span>
+                    <span class="format-lbl">HEX</span>
+                    <span id="val-hex" class="format-val">#7cd5ff</span>
+                  </div>
+                  <div
+                    id="fmt-hexa"
+                    class="format-row"
+                    onclick="selectFormat('hexa')"
+                  >
+                    <span class="radio-circle"></span>
+                    <span class="format-lbl">HEX + Alpha</span>
+                    <span id="val-hexa" class="format-val">#7cd5ffff</span>
+                  </div>
+                  <div
+                    id="fmt-rgb"
+                    class="format-row"
+                    onclick="selectFormat('rgb')"
+                  >
+                    <span class="radio-circle"></span>
+                    <span class="format-lbl">RGB</span>
+                    <span id="val-rgb" class="format-val"
+                      >rgb(124, 213, 255)</span
+                    >
+                  </div>
+                  <div
+                    id="fmt-rgba"
+                    class="format-row"
+                    onclick="selectFormat('rgba')"
+                  >
+                    <span class="radio-circle"></span>
+                    <span class="format-lbl">RGBA</span>
+                    <span id="val-rgba" class="format-val"
+                      >rgba(124, 213, 255, 1)</span
+                    >
+                  </div>
+                  <div
+                    id="fmt-hsl"
+                    class="format-row"
+                    onclick="selectFormat('hsl')"
+                  >
+                    <span class="radio-circle"></span>
+                    <span class="format-lbl">HSL</span>
+                    <span id="val-hsl" class="format-val"
+                      >hsl(199, 100%, 74%)</span
+                    >
+                  </div>
+                  <div
+                    id="fmt-hsla"
+                    class="format-row"
+                    onclick="selectFormat('hsla')"
+                  >
+                    <span class="radio-circle"></span>
+                    <span class="format-lbl">HSLA</span>
+                    <span id="val-hsla" class="format-val"
+                      >hsla(199, 100%, 74%, 1)</span
+                    >
+                  </div>
+                  <div
+                    id="fmt-hsv"
+                    class="format-row"
+                    onclick="selectFormat('hsv')"
+                  >
+                    <span class="radio-circle"></span>
+                    <span class="format-lbl">HSV</span>
+                    <span id="val-hsv" class="format-val"
+                      >hsv(199, 51%, 100%)</span
+                    >
+                  </div>
+                </div>
+
+                <!-- Color Swatch & Code preview right pane -->
+                <div class="preview-pane">
+                  <div class="swatch-block">
+                    <div
+                      id="active-swatch"
+                      class="swatch-color"
+                      style="background-color: rgb(124, 213, 255)"
+                    ></div>
+                  </div>
+                  <div id="swatch-text" class="preview-hex">#7cd5ff</div>
+                </div>
+              </div>
+
+              <!-- Saturation-Value Canvas Field -->
+              <div class="color-field-container">
+                <div class="field-caption">
+                  <span class="field-label">
+                    <span style="color: #3b82f6">▸</span> Color Field
+                  </span>
+                  <span class="field-desc"
+                    >Click/drag to adjust saturation & value</span
+                  >
+                </div>
+                <div class="canvas-wrapper">
+                  <canvas id="color-field" width="300" height="140"></canvas>
+                </div>
+              </div>
+
+              <!-- Channel Sliders -->
+              <div class="sliders-container">
+                <!-- Hue -->
+                <div class="slider-row">
+                  <span class="slider-lbl"
+                    ><span class="slider-shortcut">H</span>ue</span
+                  >
+                  <div class="slider-input-wrapper">
+                    <input
+                      type="range"
+                      id="hue-slider"
+                      class="picker-slider"
+                      min="0"
+                      max="360"
+                      value="199"
+                      oninput="updateFromSlider('h', this.value)"
+                    />
+                  </div>
+                  <span id="lbl-h" class="slider-val">199°</span>
+                </div>
+                <!-- Saturation -->
+                <div class="slider-row">
+                  <span class="slider-lbl"
+                    ><span class="slider-shortcut">S</span>at</span
+                  >
+                  <div class="slider-input-wrapper">
+                    <input
+                      type="range"
+                      id="sat-slider"
+                      class="picker-slider"
+                      min="0"
+                      max="100"
+                      value="100"
+                      oninput="updateFromSlider('s', this.value)"
+                    />
+                  </div>
+                  <span id="lbl-s" class="slider-val">100%</span>
+                </div>
+                <!-- Lightness -->
+                <div class="slider-row">
+                  <span class="slider-lbl"
+                    ><span class="slider-shortcut">L</span>ight</span
+                  >
+                  <div class="slider-input-wrapper">
+                    <input
+                      type="range"
+                      id="light-slider"
+                      class="picker-slider"
+                      min="0"
+                      max="100"
+                      value="74"
+                      oninput="updateFromSlider('l', this.value)"
+                    />
+                  </div>
+                  <span id="lbl-l" class="slider-val">74%</span>
+                </div>
+                <!-- Alpha -->
+                <div class="slider-row">
+                  <span class="slider-lbl"
+                    ><span class="slider-shortcut">A</span>lpha</span
+                  >
+                  <div class="checkerboard-bg">
+                    <input
+                      type="range"
+                      id="alpha-slider"
+                      class="picker-slider"
+                      min="0"
+                      max="100"
+                      value="100"
+                      oninput="updateFromSlider('a', this.value)"
+                    />
+                  </div>
+                  <span id="lbl-a" class="slider-val">100%</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- PALETTES TAB CONTENT -->
+            <div id="nv-palettes" class="palette-screen">
+              <div class="palette-info">
+                Dual-pane linkage: Browse saved entries on the left, edit their
+                label strings on the right. Press Enter to use a color.
+              </div>
+
+              <div class="dual-pane-container">
+                <!-- Left pane: colors & palettes -->
+                <div class="palette-pane" id="palette-colors-list">
+                  <!-- Loaded dynamically -->
+                </div>
+
+                <!-- Right pane: editable labels -->
+                <div
+                  class="palette-pane"
+                  style="border-left: 1px solid #2d3748"
+                  id="palette-labels-list"
+                >
+                  <!-- Loaded dynamically -->
+                </div>
+              </div>
+
+              <div class="palette-actions">
+                <button class="btn" onclick="resetPalettes()">
+                  Reset Palettes
+                </button>
+                <button
+                  class="btn btn-primary"
+                  onclick="simulateWriteCommand()"
+                >
+                  <svg
+                    style="width: 12px; height: 12px; fill: currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      d="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z"
+                    />
+                  </svg>
+                  Save Labels (:w)
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Neovim status / footer line -->
+          <div class="neovim-footer">
+            <div class="status-left">
+              <span class="status-mode">NORMAL</span>
+              <span id="nv-status-text" class="status-file"
+                >doc/chroma.txt</span
+              >
+              <span
+                id="nv-feedback-msg"
+                class="status-msg"
+                style="display: none"
+              ></span>
+            </div>
+            <div class="footer-help">
+              <span><span class="key-btn">tab</span> Cycle Panes</span>
+              <span><span class="key-btn">q</span> Exit</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section: Codebase Architecture -->
+      <div class="card">
+        <div class="card-title">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94-3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"
+            />
+          </svg>
+          Codebase Architecture
+        </div>
+        <p style="margin-bottom: 1.5rem">
+          The plugin's modules are isolated and self-contained, using standard
+          Neovim API namespaces without relying on general-purpose wrapper
+          frameworks.
+        </p>
+
+        <div class="arch-grid">
+          <div class="arch-node">
+            <div class="arch-title">init.lua</div>
+            <div class="arch-desc">
+              Entry point. Registers ergonomic user commands like
+              <code>:ColorPicker</code> and exposes public Lua APIs. Handles
+              plugin lifecycle configuration setup.
+            </div>
+          </div>
+
+          <div class="arch-node">
+            <div class="arch-title">state.lua</div>
+            <div class="arch-desc">
+              Implements the central state machine. Scans code lines beneath the
+              cursor or visually selected targets to parse color literal
+              formats.
+            </div>
+          </div>
+
+          <div class="arch-node">
+            <div class="arch-title">color.lua</div>
+            <div class="arch-desc">
+              Color math engine. Parses hex, rgb, hsl, hsv and names. Translates
+              between representations and exports normalized channel bounds.
+            </div>
+          </div>
+
+          <div class="arch-node">
+            <div class="arch-title">render.lua</div>
+            <div class="arch-desc">
+              Generates the text buffers, colors the grid, positions selection
+              cursor markers, builds layouts, and flushes changes to the Neovim
+              buffer.
+            </div>
+          </div>
+
+          <div class="arch-node">
+            <div class="arch-title">palette.lua</div>
+            <div class="arch-desc">
+              Manages saved palettes. Configures scroll-synchronized dual-pane
+              split windows for editable item lists and inline label buffers.
+            </div>
+          </div>
+
+          <div class="arch-node">
+            <div class="arch-title">window.lua</div>
+            <div class="arch-desc">
+              Floating window manager. Creates centered panels, sets backdrop
+              window overlays, configures local keymaps, and populates popup
+              help screens.
+            </div>
+          </div>
+
+          <div class="arch-node">
+            <div class="arch-title">store.lua</div>
+            <div class="arch-desc">
+              Disk persistence layer. Loads and serializes user color palettes
+              and recents history list in a standardized JSON file format.
+            </div>
+          </div>
+
+          <div class="arch-node">
+            <div class="arch-title">geometry.lua</div>
+            <div class="arch-desc">
+              Helper library resolving dimensions. Maps pixel coordinate
+              coordinates to HSL channel values for sliders and discrete hue
+              angles.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="site-footer">
+      <p>Chroma.nvim • Documentation Summary generated automatically • 2026</p>
+    </footer>
+
+    <!-- Simulation scripts -->
+    <script>
+      // State of the mockup
+      const state = {
+        r: 124,
+        g: 213,
+        b: 255,
+        a: 1.0,
+        h: 199,
+        s: 100,
+        l: 74,
+        v: 100,
+        format: "hex",
+        activeTab: "picker",
+        activePane: "left", // for palettes
+        selectedPaletteIndex: 1,
+      };
+
+      // Static palettes data mock
+      const initialPalettes = [
+        {
+          palette: "Dotconfig Vivid",
+          hex: "#161616",
+          label: "Editor background",
+        },
+        { palette: "Dotconfig Vivid", hex: "#e5e5e5", label: "Foreground" },
+        { palette: "Dotconfig Vivid", hex: "#4fa5e8", label: "Keyword blue" },
+        { palette: "Dotconfig Vivid", hex: "#7cd5ff", label: "Variable blue" },
+        { palette: "Dotconfig Vivid", hex: "#e572d3", label: "Magenta" },
+        {
+          palette: "Dotconfig Vivid",
+          hex: "#ffd866",
+          label: "Function yellow",
+        },
+        { palette: "Dotconfig Vivid", hex: "#35e6b7", label: "Type teal" },
+        { palette: "Dotconfig Vivid", hex: "#ec8f6e", label: "String salmon" },
+        { palette: "Dotconfig Vivid", hex: "#72b068", label: "Comment green" },
+        { palette: "Dotconfig Vivid", hex: "#f44747", label: "Error red" },
+        { palette: "Recent Colors", hex: "#10b981", label: "Accent color" },
+        { palette: "Recent Colors", hex: "#10b981", label: "Success green" },
+        { palette: "Recent Colors", hex: "#f59e0b", label: "Warning amber" },
+      ];
+
+      let palettes = JSON.parse(JSON.stringify(initialPalettes));
+
+      // Color conversion algorithms
+      function rgbToHsl(r, g, b) {
+        ((r /= 255), (g /= 255), (b /= 255));
+        const max = Math.max(r, g, b),
+          min = Math.min(r, g, b);
+        let h,
+          s,
+          l = (max + min) / 2;
+
+        if (max === min) {
+          h = s = 0; // achromatic
+        } else {
+          const d = max - min;
+          s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+          switch (max) {
+            case r:
+              h = (g - b) / d + (g < b ? 6 : 0);
+              break;
+            case g:
+              h = (b - r) / d + 2;
+              break;
+            case b:
+              h = (r - g) / d + 4;
+              break;
+          }
+          h /= 6;
+        }
+
+        return {
+          h: Math.round(h * 360),
+          s: Math.round(s * 100),
+          l: Math.round(l * 100),
+        };
+      }
+
+      function hslToRgb(h, s, l) {
+        h /= 360;
+        s /= 100;
+        l /= 100;
+        let r, g, b;
+
+        if (s === 0) {
+          r = g = b = l; // achromatic
+        } else {
+          const hue2rgb = (p, q, t) => {
+            if (t < 0) t += 1;
+            if (t > 1) t -= 1;
+            if (t < 1 / 6) return p + (q - p) * 6 * t;
+            if (t < 1 / 2) return q;
+            if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+            return p;
+          };
+
+          const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+          const p = 2 * l - q;
+          r = hue2rgb(p, q, h + 1 / 3);
+          g = hue2rgb(p, q, h);
+          b = hue2rgb(p, q, h - 1 / 3);
+        }
+
+        return {
+          r: Math.round(r * 255),
+          g: Math.round(g * 255),
+          b: Math.round(b * 255),
+        };
+      }
+
+      function rgbToHsv(r, g, b) {
+        r /= 255;
+        g /= 255;
+        b /= 255;
+        const max = Math.max(r, g, b),
+          min = Math.min(r, g, b);
+        let h,
+          s,
+          v = max;
+
+        const d = max - min;
+        s = max === 0 ? 0 : d / max;
+
+        if (max === min) {
+          h = 0; // achromatic
+        } else {
+          switch (max) {
+            case r:
+              h = (g - b) / d + (g < b ? 6 : 0);
+              break;
+            case g:
+              h = (b - r) / d + 2;
+              break;
+            case b:
+              h = (r - g) / d + 4;
+              break;
+          }
+          h /= 6;
+        }
+
+        return {
+          h: Math.round(h * 360),
+          s: Math.round(s * 100),
+          v: Math.round(v * 100),
+        };
+      }
+
+      function hsvToRgb(h, s, v) {
+        h /= 360;
+        s /= 100;
+        v /= 100;
+        let r, g, b;
+
+        const i = Math.floor(h * 6);
+        const f = h * 6 - i;
+        const p = v * (1 - s);
+        const q = v * (1 - f * s);
+        const t = v * (1 - (1 - f) * s);
+
+        switch (i % 6) {
+          case 0:
+            ((r = v), (g = t), (b = p));
+            break;
+          case 1:
+            ((r = q), (g = v), (b = p));
+            break;
+          case 2:
+            ((r = p), (g = v), (b = t));
+            break;
+          case 3:
+            ((r = p), (g = q), (b = v));
+            break;
+          case 4:
+            ((r = t), (g = p), (b = v));
+            break;
+          case 5:
+            ((r = v), (g = p), (b = q));
+            break;
+        }
+
+        return {
+          r: Math.round(r * 255),
+          g: Math.round(g * 255),
+          b: Math.round(b * 255),
+        };
+      }
+
+      function toHex(r, g, b) {
+        const sh = (val) => {
+          const hex = Math.max(0, Math.min(255, Math.round(val))).toString(16);
+          return hex.length === 1 ? "0" + hex : hex;
+        };
+        return "#" + sh(r) + sh(g) + sh(b);
+      }
+
+      function toHexa(r, g, b, a) {
+        const sh = (val) => {
+          const hex = Math.max(0, Math.min(255, Math.round(val))).toString(16);
+          return hex.length === 1 ? "0" + hex : hex;
+        };
+        const alphaHex = sh(Math.round(a * 255));
+        return "#" + sh(r) + sh(g) + sh(b) + alphaHex;
+      }
+
+      function parseHex(hex) {
+        hex = hex.replace("#", "");
+        if (hex.length === 3) {
+          hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+        }
+        if (hex.length === 6) {
+          return {
+            r: parseInt(hex.substring(0, 2), 16),
+            g: parseInt(hex.substring(2, 4), 16),
+            b: parseInt(hex.substring(4, 6), 16),
+            a: 1.0,
+          };
+        }
+        if (hex.length === 8) {
+          return {
+            r: parseInt(hex.substring(0, 2), 16),
+            g: parseInt(hex.substring(2, 4), 16),
+            b: parseInt(hex.substring(4, 6), 16),
+            a: parseFloat((parseInt(hex.substring(6, 8), 16) / 255).toFixed(2)),
+          };
+        }
+        return null;
+      }
+
+      // Update screen elements based on current state values
+      function updateUI() {
+        // Swatch color block
+        const swatch = document.getElementById("active-swatch");
+        swatch.style.backgroundColor = `rgba(${state.r}, ${state.g}, ${state.b}, ${state.a})`;
+
+        // Formatting text outputs
+        const hexVal = toHex(state.r, state.g, state.b);
+        const hexaVal = toHexa(state.r, state.g, state.b, state.a);
+        const rgbVal = `rgb(${state.r}, ${state.g}, ${state.b})`;
+        const rgbaVal = `rgba(${state.r}, ${state.g}, ${state.b}, ${state.a})`;
+        const hslVal = `hsl(${state.h}, ${state.s}%, ${state.l}%)`;
+        const hslaVal = `hsla(${state.h}, ${state.s}%, ${state.l}%, ${state.a})`;
+        const hsvVal = `hsv(${state.h}, ${state.s}%, ${state.v}%)`;
+
+        document.getElementById("val-hex").textContent = hexVal;
+        document.getElementById("val-hexa").textContent = hexaVal;
+        document.getElementById("val-rgb").textContent = rgbVal;
+        document.getElementById("val-rgba").textContent = rgbaVal;
+        document.getElementById("val-hsl").textContent = hslVal;
+        document.getElementById("val-hsla").textContent = hslaVal;
+        document.getElementById("val-hsv").textContent = hsvVal;
+
+        // Swatch text representation
+        let activeText = hexVal;
+        if (state.format === "hexa") activeText = hexaVal;
+        else if (state.format === "rgb") activeText = rgbVal;
+        else if (state.format === "rgba") activeText = rgbaVal;
+        else if (state.format === "hsl") activeText = hslVal;
+        else if (state.format === "hsla") activeText = hslaVal;
+        else if (state.format === "hsv") activeText = hsvVal;
+
+        document.getElementById("swatch-text").textContent = activeText;
+
+        // Update Sliders numeric labels
+        document.getElementById("lbl-h").textContent = state.h + "°";
+        document.getElementById("lbl-s").textContent = state.s + "%";
+        document.getElementById("lbl-l").textContent = state.l + "%";
+        document.getElementById("lbl-a").textContent =
+          Math.round(state.a * 100) + "%";
+
+        // Update Sliders positions
+        document.getElementById("hue-slider").value = state.h;
+        document.getElementById("sat-slider").value = state.s;
+        document.getElementById("light-slider").value = state.l;
+        document.getElementById("alpha-slider").value = Math.round(
+          state.a * 100,
+        );
+
+        // Redraw Canvas Field
+        drawCanvas();
+      }
+
+      // Switch between picker formats
+      function selectFormat(formatId) {
+        document
+          .querySelectorAll(".format-row")
+          .forEach((el) => el.classList.remove("active"));
+        document.getElementById("fmt-" + formatId).classList.add("active");
+        state.format = formatId;
+        updateUI();
+      }
+
+      // Canvas rendering for the saturation/value color field
+      const canvas = document.getElementById("color-field");
+      const ctx = canvas.getContext("2d");
+
+      function drawCanvas() {
+        const width = canvas.width;
+        const height = canvas.height;
+
+        // Base Hue Color
+        ctx.fillStyle = `hsl(${state.h}, 100%, 50%)`;
+        ctx.fillRect(0, 0, width, height);
+
+        // Saturation overlay (white on left, transparent on right)
+        const gradS = ctx.createLinearGradient(0, 0, width, 0);
+        gradS.addColorStop(0, "rgba(255, 255, 255, 1)");
+        gradS.addColorStop(1, "rgba(255, 255, 255, 0)");
+        ctx.fillStyle = gradS;
+        ctx.fillRect(0, 0, width, height);
+
+        // Value overlay (transparent on top, black on bottom)
+        const gradV = ctx.createLinearGradient(0, 0, 0, height);
+        gradV.addColorStop(0, "rgba(0, 0, 0, 0)");
+        gradV.addColorStop(1, "rgba(0, 0, 0, 1)");
+        ctx.fillStyle = gradV;
+        ctx.fillRect(0, 0, width, height);
+
+        // Selection Marker
+        const markerX = (state.s / 100) * width;
+        const markerY = ((100 - state.v) / 100) * height;
+
+        // Inner selection ring
+        ctx.beginPath();
+        ctx.arc(markerX, markerY, 5, 0, 2 * Math.PI);
+        ctx.strokeStyle = "#000000";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(markerX, markerY, 4, 0, 2 * Math.PI);
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+
+      // Click & drag interactions on the SV canvas color field
+      let isDrawing = false;
+
+      function getCoords(e) {
+        const rect = canvas.getBoundingClientRect();
+        // Account for scaling if width is responsive CSS-wise
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const x = Math.max(
+          0,
+          Math.min(canvas.width, (e.clientX - rect.left) * scaleX),
+        );
+        const y = Math.max(
+          0,
+          Math.min(canvas.height, (e.clientY - rect.top) * scaleY),
+        );
+        return { x, y };
+      }
+
+      function handleFieldChange(e) {
+        const coords = getCoords(e);
+        state.s = Math.round((coords.x / canvas.width) * 100);
+        state.v = Math.round((1 - coords.y / canvas.height) * 100);
+
+        // Sync HSV back to HSL and RGB
+        const rgb = hsvToRgb(state.h, state.s, state.v);
+        state.r = rgb.r;
+        state.g = rgb.g;
+        state.b = rgb.b;
+
+        const hsl = rgbToHsl(state.r, state.g, state.b);
+        state.s = hsl.s; // update saturation to match HSL
+        state.l = hsl.l;
+
+        updateUI();
+      }
+
+      canvas.addEventListener("mousedown", (e) => {
+        isDrawing = true;
+        handleFieldChange(e);
+      });
+
+      window.addEventListener("mousemove", (e) => {
+        if (isDrawing) {
+          handleFieldChange(e);
+        }
+      });
+
+      window.addEventListener("mouseup", () => {
+        isDrawing = false;
+      });
+
+      // Update state from range slider inputs
+      function updateFromSlider(channel, value) {
+        value = parseFloat(value);
+        if (channel === "h") {
+          state.h = value;
+          const rgb = hslToRgb(state.h, state.s, state.l);
+          state.r = rgb.r;
+          state.g = rgb.g;
+          state.b = rgb.b;
+          const hsv = rgbToHsv(state.r, state.g, state.b);
+          state.v = hsv.v;
+        } else if (channel === "s") {
+          state.s = value;
+          const rgb = hslToRgb(state.h, state.s, state.l);
+          state.r = rgb.r;
+          state.g = rgb.g;
+          state.b = rgb.b;
+          const hsv = rgbToHsv(state.r, state.g, state.b);
+          state.v = hsv.v;
+        } else if (channel === "l") {
+          state.l = value;
+          const rgb = hslToRgb(state.h, state.s, state.l);
+          state.r = rgb.r;
+          state.g = rgb.g;
+          state.b = rgb.b;
+          const hsv = rgbToHsv(state.r, state.g, state.b);
+          state.v = hsv.v;
+        } else if (channel === "a") {
+          state.a = value / 100;
+        }
+        updateUI();
+      }
+
+      // Neovim tab management
+      function switchNeovimTab(tabId) {
+        document
+          .querySelectorAll(".neovim-tab")
+          .forEach((el) => el.classList.remove("active"));
+        document.getElementById("tab-" + tabId).classList.add("active");
+
+        if (tabId === "picker") {
+          document.getElementById("nv-picker").style.display = "flex";
+          document.getElementById("nv-palettes").style.display = "none";
+          document.getElementById("nv-status-text").textContent =
+            "doc/chroma.txt";
+          state.activeTab = "picker";
+          setTimeout(drawCanvas, 10); // Redraw canvas on view switch
+        } else {
+          document.getElementById("nv-picker").style.display = "none";
+          document.getElementById("nv-palettes").style.display = "flex";
+          document.getElementById("nv-status-text").textContent =
+            "stdpath/state/chroma.nvim/palettes.json";
+          state.activeTab = "palettes";
+          renderPalettesLists();
+        }
+      }
+
+      // Documentation tab management
+      function switchDocTab(tabId) {
+        document
+          .querySelectorAll(".doc-tab")
+          .forEach((el) => el.classList.remove("active"));
+        document
+          .querySelectorAll(".doc-content")
+          .forEach((el) => el.classList.remove("active"));
+
+        // Find the tab that was clicked and activate it
+        const eventTarget = window.event.currentTarget;
+        eventTarget.classList.add("active");
+        document.getElementById(tabId).classList.add("active");
+      }
+
+      // Copy code helper
+      function copyCode(btn) {
+        const pre = btn.nextElementSibling;
+        const code = pre.textContent;
+        navigator.clipboard.writeText(code).then(() => {
+          const svg = btn.innerHTML;
+          btn.innerHTML =
+            '<span style="font-size:0.65rem;color:#10b981;font-weight:bold;">Copied!</span>';
+          setTimeout(() => {
+            btn.innerHTML = svg;
+          }, 1500);
+        });
+      }
+
+      // Render lists in Palette dual pane UI
+      function renderPalettesLists() {
+        const colorsList = document.getElementById("palette-colors-list");
+        const labelsList = document.getElementById("palette-labels-list");
+
+        colorsList.innerHTML = "";
+        labelsList.innerHTML = "";
+
+        let currentSection = "";
+
+        palettes.forEach((item, index) => {
+          // Render section title headers (e.g. Dotconfig Vivid)
+          if (item.palette !== currentSection) {
+            currentSection = item.palette;
+
+            const sec1 = document.createElement("div");
+            sec1.className = "palette-section-title";
+            sec1.textContent = currentSection;
+            colorsList.appendChild(sec1);
+
+            const sec2 = document.createElement("div");
+            sec2.className = "palette-section-title";
+            sec2.textContent = " ";
+            labelsList.appendChild(sec2);
+          }
+
+          // Color cell left pane
+          const rowColor = document.createElement("div");
+          rowColor.className =
+            "palette-table-row" +
+            (index === state.selectedPaletteIndex ? " active" : "");
+          rowColor.onclick = () => selectPaletteRow(index);
+
+          const swatch = document.createElement("span");
+          swatch.className = "mini-swatch";
+          swatch.style.backgroundColor = item.hex;
+
+          const textHex = document.createElement("span");
+          textHex.textContent = item.hex;
+
+          rowColor.appendChild(swatch);
+          rowColor.appendChild(textHex);
+          colorsList.appendChild(rowColor);
+
+          // Editable label input right pane
+          const rowLabel = document.createElement("div");
+          rowLabel.className =
+            "palette-table-row" +
+            (index === state.selectedPaletteIndex ? " active" : "");
+          rowLabel.onclick = () => selectPaletteRow(index);
+
+          const input = document.createElement("input");
+          input.type = "text";
+          input.className = "label-input";
+          input.value = item.label;
+          input.oninput = (e) => {
+            palettes[index].label = e.target.value;
+          };
+
+          rowLabel.appendChild(input);
+          labelsList.appendChild(rowLabel);
+        });
+      }
+
+      function selectPaletteRow(index) {
+        state.selectedPaletteIndex = index;
+        renderPalettesLists();
+
+        // Update main picker state from the selected palette color
+        const parsed = parseHex(palettes[index].hex);
+        if (parsed) {
+          state.r = parsed.r;
+          state.g = parsed.g;
+          state.b = parsed.b;
+          state.a = parsed.a;
+
+          const hsl = rgbToHsl(state.r, state.g, state.b);
+          state.h = hsl.h;
+          state.s = hsl.s;
+          state.l = hsl.l;
+
+          const hsv = rgbToHsv(state.r, state.g, state.b);
+          state.v = hsv.v;
+
+          updateUI();
+
+          // Show feedback message in statusline
+          showStatuslineMessage(`Loaded color ${palettes[index].hex}`);
+        }
+      }
+
+      function resetPalettes() {
+        palettes = JSON.parse(JSON.stringify(initialPalettes));
+        renderPalettesLists();
+        showStatuslineMessage("Palettes reset to defaults");
+      }
+
+      // Save simulation mimicking :w command (BufWriteCmd event)
+      function simulateWriteCommand() {
+        showStatuslineMessage(
+          "[chroma.nvim] Saved labels to JSON palettes store",
+        );
+      }
+
+      function showStatuslineMessage(msg) {
+        const el = document.getElementById("nv-feedback-msg");
+        el.textContent = msg;
+        el.style.display = "inline";
+
+        // Clear after 3 seconds
+        if (window.statusTimer) clearTimeout(window.statusTimer);
+        window.statusTimer = setTimeout(() => {
+          el.style.display = "none";
+        }, 3000);
+      }
+
+      // Initial setup
+      updateUI();
+    </script>
+  </body>
+</html>
