@@ -1,6 +1,6 @@
 # chroma.nvim
 
-A self-contained, high-performance interactive color picker for Neovim 0.10+ extracted from Max's dotfiles. 
+A self-contained, high-performance interactive color picker for Neovim 0.10+ extracted from Max's dotfiles.
 
 Chroma provides a feature-rich, standalone floating UI to edit and preview color literals in your code in real-time, with **zero runtime plugin dependencies**.
 
@@ -28,7 +28,7 @@ Chroma provides a feature-rich, standalone floating UI to edit and preview color
 
 ```lua
 {
-  "max/chroma.nvim",
+  "inteist/chroma.nvim",
   opts = {
     store = {
       max_recents = 40, -- Limit of recently selected colors saved in store
@@ -41,16 +41,6 @@ Chroma provides a feature-rich, standalone floating UI to edit and preview color
 }
 ```
 
-For local plugin development:
-
-```lua
-{
-  "chroma.nvim",
-  dir = vim.fn.expand("~/Projects/chroma.nvim"),
-  opts = {},
-}
-```
-
 ---
 
 ## Commands & Lua API
@@ -59,13 +49,13 @@ Chroma defines ergonomic user commands that mirror the Lua API for scriptability
 
 ### Commands Index
 
-| Command | Description |
-| :--- | :--- |
-| `:ColorPicker [color]` | Open Chroma, optionally seeded with a custom color. |
-| `:ColorPickerCursor` | Open picker for the color under the cursor or selection. |
-| `:ColorPickerInput` | Prompt for a color string, then open the picker. |
-| `:ColorPickerPalettes` | Open the saved color palettes manager. |
-| `:ColorPickerRecents` | Open recently used colors. |
+| Command                     | Description                                                 |
+| :-------------------------- | :---------------------------------------------------------- |
+| `:ColorPicker [color]`      | Open Chroma, optionally seeded with a custom color.         |
+| `:ColorPickerCursor`        | Open picker for the color under the cursor or selection.    |
+| `:ColorPickerInput`         | Prompt for a color string, then open the picker.            |
+| `:ColorPickerPalettes`      | Open the saved color palettes manager.                      |
+| `:ColorPickerRecents`       | Open recently used colors.                                  |
 | `:ColorPickerCopy [format]` | Copy the color under cursor/selection in a specific format. |
 
 ### Lua API Examples
@@ -97,31 +87,31 @@ chroma.palettes()                              -- Open palette manager
 
 ### Main Color Picker UI
 
-| Keys | Action |
-| :--- | :--- |
-| `h` / `j` / `k` / `l` | Move cursor in saturation-value grid / adjust channel values |
-| `←` / `↓` / `↑` / `→` | Move cursor in saturation-value grid / adjust channel values |
-| `<Tab>` | Cycle focus between the Color Field and channel sliders |
-| `H` / `S` / `L` | Directly focus Hue, Saturation, or Lightness sliders |
-| `R` / `G` / `B` | Directly focus Red, Green, or Blue sliders |
-| `A` | Directly focus the Alpha (transparency) slider |
-| `f` | Cycle active color output format |
-| `i` | Prompt to type a custom color value manually |
-| `y` | Yank the active color in the current format to the clipboard |
-| `<CR>` (Enter) | Confirm selection (saves color to recents, replaces code literal, and exits) |
-| `q` / `<Esc>` | Wipout floating buffer and cancel picker |
+| Keys                  | Action                                                                       |
+| :-------------------- | :--------------------------------------------------------------------------- |
+| `h` / `j` / `k` / `l` | Move cursor in saturation-value grid / adjust channel values                 |
+| `←` / `↓` / `↑` / `→` | Move cursor in saturation-value grid / adjust channel values                 |
+| `<Tab>`               | Cycle focus between the Color Field and channel sliders                      |
+| `H` / `S` / `L`       | Directly focus Hue, Saturation, or Lightness sliders                         |
+| `R` / `G` / `B`       | Directly focus Red, Green, or Blue sliders                                   |
+| `A`                   | Directly focus the Alpha (transparency) slider                               |
+| `f`                   | Cycle active color output format                                             |
+| `i`                   | Prompt to type a custom color value manually                                 |
+| `y`                   | Yank the active color in the current format to the clipboard                 |
+| `<CR>` (Enter)        | Confirm selection (saves color to recents, replaces code literal, and exits) |
+| `q` / `<Esc>`         | Wipout floating buffer and cancel picker                                     |
 
 ### Palette & Recents Manager UI
 
-| Keys | Action |
-| :--- | :--- |
-| `<Tab>` | Cycle focus between Left (color list) and Right (labels list) panes |
+| Keys                   | Action                                                                |
+| :--------------------- | :-------------------------------------------------------------------- |
+| `<Tab>`                | Cycle focus between Left (color list) and Right (labels list) panes   |
 | `j` / `k` or `↓` / `↑` | Navigate colors (scrolls and moves cursor in left/right pane in sync) |
-| `i` / `A` | Trigger edit mode on focused label inside the right pane |
-| `:w` | Save modified label strings to JSON file on disk |
-| `y` | Yank the color of the selected entry directly to the clipboard |
-| `<CR>` (Enter) | Load selected color back into the main color picker UI |
-| `q` / `<Esc>` | Close the palettes manager |
+| `i` / `A`              | Trigger edit mode on focused label inside the right pane              |
+| `:w`                   | Save modified label strings to JSON file on disk                      |
+| `y`                    | Yank the color of the selected entry directly to the clipboard        |
+| `<CR>` (Enter)         | Load selected color back into the main color picker UI                |
+| `q` / `<Esc>`          | Close the palettes manager                                            |
 
 ---
 
@@ -129,17 +119,17 @@ chroma.palettes()                              -- Open palette manager
 
 Chroma sets up custom semantic highlight groups that automatically sync on colorscheme switches. You can override these in your configuration:
 
-| Highlight Group | Default Link / Description |
-| :--- | :--- |
-| `ChromaNormal` | Links to `NormalFloat` (Main panel background and text) |
-| `ChromaBorder` | Links to `FloatBorder` (Panel border outline) |
-| `ChromaTitle` | Links to `FloatTitle` (Header titles) |
-| `ChromaAccent` | Links to `Directory` (Focus markers and selector checks) |
-| `ChromaActive` | Links to `PmenuSel` (Focused channel labels) |
-| `ChromaValue` | Links to `Number` (Channel numeric values) |
-| `ChromaMuted` | Links to `Comment` (Dimmed instructions and subtitles) |
-| `ChromaFooterKey` | Links to `Keyword` (Keyboard shortcut letters in footer) |
-| `ChromaFooterDesc`| Links to `Comment` (Shortcut description text in footer) |
+| Highlight Group    | Default Link / Description                               |
+| :----------------- | :------------------------------------------------------- |
+| `ChromaNormal`     | Links to `NormalFloat` (Main panel background and text)  |
+| `ChromaBorder`     | Links to `FloatBorder` (Panel border outline)            |
+| `ChromaTitle`      | Links to `FloatTitle` (Header titles)                    |
+| `ChromaAccent`     | Links to `Directory` (Focus markers and selector checks) |
+| `ChromaActive`     | Links to `PmenuSel` (Focused channel labels)             |
+| `ChromaValue`      | Links to `Number` (Channel numeric values)               |
+| `ChromaMuted`      | Links to `Comment` (Dimmed instructions and subtitles)   |
+| `ChromaFooterKey`  | Links to `Keyword` (Keyboard shortcut letters in footer) |
+| `ChromaFooterDesc` | Links to `Comment` (Shortcut description text in footer) |
 
 ---
 
