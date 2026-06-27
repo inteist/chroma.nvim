@@ -6,7 +6,20 @@
 
 local M = {}
 
-M.formats = { "hex", "hexa", "rgb0x", "argb0x", "rgb", "rgba", "hsl", "hsla", "hsv" }
+M.formats = {
+	"hex",
+	"hexa",
+	"rgb0x",
+	"argb0x",
+	"rgb",
+	"rgba",
+	"argb",
+	"rgba_tuple",
+	"argb_tuple",
+	"hsl",
+	"hsla",
+	"hsv",
+}
 
 M.format_labels = {
 	hex = "HEX",
@@ -15,6 +28,9 @@ M.format_labels = {
 	argb0x = "0x ARGB",
 	rgb = "RGB",
 	rgba = "RGBA",
+	argb = "ARGB",
+	rgba_tuple = "RGBA Tuple",
+	argb_tuple = "ARGB Tuple",
 	hsl = "HSL",
 	hsla = "HSLA",
 	hsv = "HSV",
@@ -198,6 +214,73 @@ local function parse_rgb_component(value)
 	end
 
 	return clamp(round(number), 0, 255)
+end
+
+-- Stricter variant of `parse_number` that rejects any leading/trailing
+-- non-numeric characters and explicitly signals whether the value was a
+-- percentage. Returns three values: the parsed number, a boolean
+-- `is_percent`, and the raw (trimmed, stripped of %) string so callers can
+-- inspect it directly (e.g. to detect a decimal point).
+local function parse_strict_number(value)
+	local text = trim(value):lower()
+	local is_percent = false
+	if text:sub(-1) == "%" then
+		is_percent = true
+		text = trim(text:sub(1, -2))
+	end
+	if not text:match("^[-+]?%d*%.?%d+$") then
+		return nil
+	end
+	---@return number?, boolean, string
+	return tonumber(text), is_percent, text
+end
+
+local function parse_tuple_rgb_component(value)
+	local number, is_percent = parse_strict_number(value)
+	if not number then
+		return nil
+	end
+	if is_percent then
+		number = number * 255 / 100
+	end
+	return clamp(round(number), 0, 255)
+end
+
+-- Try to interpret `value` as a tuple alpha component and return (alpha,
+-- kind) or nil.
+--
+-- "kind" is one of:
+--   "explicit" – the value is unambiguously alpha-domain (a decimal fraction
+--                or a percentage), and can be used even for unit-range tuples.
+--   "unit"     – the value is literally `0` or `1`. It looks alpha-like but
+--                is also a plausible small coordinate/flag, so the caller must
+--                verify that the remaining channels look colour-like before
+--                committing to an ARGB/RGBA interpretation.
+local function parse_tuple_alpha(value)
+	local number, is_percent, raw = parse_strict_number(value)
+	if not number then
+		return nil
+	end
+	if is_percent then
+		if number < 0 or number > 100 then
+			return nil
+		end
+		return clamp(number / 100, 0, 1), "explicit"
+	end
+	-- Only values in [0, 1] can be a unit-range alpha at all.
+	if number < 0 or number > 1 then
+		return nil
+	end
+	-- A decimal point makes the alpha intent unambiguous (e.g. `0.8`).
+	if raw:find("%.") then
+		return clamp(number, 0, 1), "explicit"
+	end
+	-- The bare integers `0` and `1` are alpha-like but cannot be
+	-- distinguished from small coordinates on their own.
+	if raw == "0" or raw == "1" then
+		return clamp(number, 0, 1), "unit"
+	end
+	return nil
 end
 
 local function parse_hue(value)
@@ -411,6 +494,132 @@ local function parse_rgb(args, fmt)
 	return M.normalize({ r = r, g = g, b = b, a = a }), detected
 end
 
+-- Parse `argb(alpha, r, g, b)`. Uses the same lenient alpha rules as
+-- `rgba()`: a bare value greater than 1 is treated as a percentage,
+-- matching common design-tool output (e.g. `argb(80, 255, 255, 255)`).
+local function parse_argb(args)
+	local parts = split_args(args)
+	if #parts < 4 then
+		return nil
+	end
+
+	local a = parse_alpha(parts[1])
+	local r = parse_rgb_component(parts[2])
+	local g = parse_rgb_component(parts[3])
+	local b = parse_rgb_component(parts[4])
+	if not (a and r and g and b) then
+		return nil
+	end
+
+	return M.normalize({ r = r, g = g, b = b, a = a }), "argb"
+end
+
+-- Return true when the RGB-position channels in `parts` at `indexes` look
+-- like colour components rather than generic coordinates or flags.
+--
+-- Heuristics (any one is sufficient):
+--   • A percentage suffix (`50%`)    → unambiguously a colour channel.
+--   • A decimal point (`10.5`)       → fractional, not a plain integer.
+--   • Value >= 16                    → above the highest plausible alpha
+--     percentage that is also a small integer, so almost certainly an RGB
+--     byte (valid range 0-255). The threshold 16 is chosen conservatively:
+--     it is impossible to have alpha = 16 that looks like a colour-channel
+--     value in a 4-element tuple where another field is 0 or 1.
+--   • A repeated value               → e.g. `(1, 1, 1, 0)` — the duplicate
+--     makes it very unlikely to be a plain coordinate list.
+local function tuple_rgb_looks_color_like(parts, indexes)
+	local seen = {}
+	for _, idx in ipairs(indexes) do
+		local number, is_percent, raw = parse_strict_number(parts[idx])
+		if not number then
+			return false
+		end
+		if is_percent or raw:find("%.") or number >= 16 then
+			return true
+		end
+		local key = tostring(number)
+		if seen[key] then
+			return true
+		end
+		seen[key] = true
+	end
+	return false
+end
+
+-- When the candidate alpha kind is "unit" (bare `0` or `1`), require the
+-- remaining channels to pass the colour-likeness check before accepting the
+-- tuple as a colour. "explicit" alphas (fractions / percentages) are always
+-- trusted without extra validation.
+local function tuple_alpha_is_usable(kind, parts, indexes)
+	return kind ~= "unit" or tuple_rgb_looks_color_like(parts, indexes)
+end
+
+-- Shared implementation: parse three raw string values as RGB components,
+-- combine with the already-parsed alpha, normalise, and return.
+local function build_color_tuple(r_raw, g_raw, b_raw, a, fmt)
+	local r = parse_tuple_rgb_component(r_raw)
+	local g = parse_tuple_rgb_component(g_raw)
+	local b = parse_tuple_rgb_component(b_raw)
+	if not (r and g and b and a) then
+		return nil
+	end
+	return M.normalize({ r = r, g = g, b = b, a = a }), fmt
+end
+
+-- Build an RGBA-ordered colour from a 4-element parts array where the
+-- alpha occupies `parts[4]` and RGB occupies `parts[1..3]`.
+local function build_rgba_tuple(parts, a)
+	return build_color_tuple(parts[1], parts[2], parts[3], a, "rgba_tuple")
+end
+
+-- Build an ARGB-ordered colour from a 4-element parts array where the
+-- alpha occupies `parts[1]` and RGB occupies `parts[2..4]`.
+local function build_argb_tuple(parts, a)
+	return build_color_tuple(parts[2], parts[3], parts[4], a, "argb_tuple")
+end
+
+-- Attempt to parse a bare parenthesised 4-element numeric tuple as either
+-- an RGBA tuple `(r, g, b, a)` or an ARGB tuple `(a, r, g, b)`.
+--
+-- Disambiguation strategy:
+--   1. Check whether the first and last elements look like alpha values.
+--   2. Prefer the last element as alpha (RGBA layout) when:
+--        • only the last element is alpha-like, OR
+--        • both ends look alpha-like but the last is "explicit" and the
+--          first is only "unit" (bare 0/1).
+--   3. Prefer the first element as alpha (ARGB layout) under the symmetric
+--      condition.
+--   4. When the winning alpha kind is "unit", additionally verify that the
+--      RGB channels look colour-like — this filters out plain coordinate
+--      tuples such as `(1, 2, 3, 4)` that would otherwise be misdetected.
+local function parse_tuple(args)
+	local parts = split_args(args)
+	if #parts ~= 4 then
+		return nil
+	end
+
+	local first_alpha, first_alpha_kind = parse_tuple_alpha(parts[1])
+	local last_alpha, last_alpha_kind = parse_tuple_alpha(parts[4])
+
+	-- RGBA layout: last element is the alpha.
+	local last_wins = last_alpha
+		and (not first_alpha or (last_alpha_kind == "explicit" and first_alpha_kind == "unit"))
+	-- ARGB layout: first element is the alpha.
+	local first_wins = first_alpha
+		and (not last_alpha or (first_alpha_kind == "explicit" and last_alpha_kind == "unit"))
+
+	if last_wins then
+		if tuple_alpha_is_usable(last_alpha_kind, parts, { 1, 2, 3 }) then
+			return build_rgba_tuple(parts, last_alpha)
+		end
+	elseif first_wins then
+		if tuple_alpha_is_usable(first_alpha_kind, parts, { 2, 3, 4 }) then
+			return build_argb_tuple(parts, first_alpha)
+		end
+	end
+	return nil
+end
+
 local function parse_hsl(args, fmt)
 	local parts = split_args(args)
 	if #parts < 3 then
@@ -449,8 +658,9 @@ end
 ---Parse a color from common authoring formats.
 ---
 ---Supported inputs include `#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`,
----`0xrrggbb`, `0xaarrggbb`, `rgb()`, `rgba()`, `hsl()`, `hsla()`,
----`hsv()` and common CSS color names.
+---`0xrrggbb`, `0xaarrggbb`, `rgb()`, `rgba()`, `argb()`, RGBA/ARGB
+---numeric tuples like `(255, 255, 255, 0.8)` / `(0.3, 255, 255, 255)`,
+---`hsl()`, `hsla()`, `hsv()` and common CSS color names.
 ---@param value string
 ---@return DotconfigColor? color
 ---@return string? format Detected format (`hex`, `rgb`, `hsl`, etc.).
@@ -471,10 +681,20 @@ function M.parse(value)
 		return M.normalize(color), fmt
 	end
 
+	local tuple_args = text:match("^%((.*)%)$")
+	if tuple_args then
+		color, fmt = parse_tuple(tuple_args)
+		if color then
+			return color, fmt
+		end
+	end
+
 	local name, args = text:match("^([%a]+)%s*%((.*)%)$")
 	if name and args then
 		if name == "rgb" or name == "rgba" then
 			color, fmt = parse_rgb(args, name)
+		elseif name == "argb" then
+			color, fmt = parse_argb(args)
 		elseif name == "hsl" or name == "hsla" then
 			color, fmt = parse_hsl(args, name)
 		elseif name == "hsv" or name == "hsb" then
@@ -516,6 +736,12 @@ function M.format(c, fmt)
 		return ("rgb(%d, %d, %d)"):format(c.r, c.g, c.b)
 	elseif fmt == "rgba" then
 		return ("rgba(%d, %d, %d, %s)"):format(c.r, c.g, c.b, alpha_string(c.a))
+	elseif fmt == "argb" then
+		return ("argb(%s, %d, %d, %d)"):format(alpha_string(c.a), c.r, c.g, c.b)
+	elseif fmt == "rgba_tuple" then
+		return ("(%d, %d, %d, %s)"):format(c.r, c.g, c.b, alpha_string(c.a))
+	elseif fmt == "argb_tuple" then
+		return ("(%s, %d, %d, %d)"):format(alpha_string(c.a), c.r, c.g, c.b)
 	elseif fmt == "hsl" or fmt == "hsla" then
 		local hsl = M.to_hsl(c)
 		if fmt == "hsla" then
@@ -628,6 +854,9 @@ function M.contrast(c)
 	return luminance > 0.5 and "#000000" or "#ffffff"
 end
 
+-- Forward declaration: `add_match` (defined next) calls `overlaps`, and
+-- `overlaps` is defined immediately after. The upvalue is shared between
+-- both closures so they can reference each other without a module-level table.
 local overlaps
 
 local function add_match(matches, line, start_idx, end_idx)
@@ -690,6 +919,25 @@ function M.find_all(line)
 		end
 		add_match(matches, line, s, e)
 		start = e + 1
+	end
+
+	-- Scan for bare parenthesised tuples `(...)` that are not preceded by an
+	-- identifier (those are captured by the function-call pass above). We walk
+	-- one `(` at a time; `%b()` ensures we only match balanced pairs. For
+	-- typical source lines this is O(n); pathological lines with many unmatched
+	-- `(` characters could be quadratic, but that is not a realistic concern
+	-- for colour literal scanning.
+	start = 1
+	while true do
+		local s = line:find("%(", start)
+		if not s then
+			break
+		end
+		local balanced_start, e = line:find("%b()", s)
+		if balanced_start == s and e then
+			add_match(matches, line, s, e)
+		end
+		start = s + 1
 	end
 
 	start = 1

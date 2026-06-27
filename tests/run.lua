@@ -134,6 +134,75 @@ test("color formatter preserves zero alpha", function()
 	assert_eq("0x00010203", color.format({ r = 1, g = 2, b = 3, a = 0 }, "argb0x"))
 end)
 
+test("color parser supports rgba and argb numeric tuples", function()
+	local color = require("chroma.color")
+
+	local rgba_tuple, rgba_tuple_fmt = color.parse("(255, 255, 255, 0.8)")
+	assert_eq({ r = 255, g = 255, b = 255, a = 0.8 }, rgba_tuple)
+	assert_eq("rgba_tuple", rgba_tuple_fmt)
+	assert_eq("(255, 255, 255, 0.8)", color.format(rgba_tuple, "rgba_tuple"))
+
+	local argb_tuple, argb_tuple_fmt = color.parse("(0.3, 255, 255, 255)")
+	assert_eq({ r = 255, g = 255, b = 255, a = 0.3 }, argb_tuple)
+	assert_eq("argb_tuple", argb_tuple_fmt)
+	assert_eq("(0.3, 255, 255, 255)", color.format(argb_tuple, "argb_tuple"))
+
+	local argb_call, argb_call_fmt = color.parse("argb(0.3, 255, 255, 255)")
+	assert_eq({ r = 255, g = 255, b = 255, a = 0.3 }, argb_call)
+	assert_eq("argb", argb_call_fmt)
+	assert_eq("argb(0.3, 255, 255, 255)", color.format(argb_call, "argb"))
+
+	local edge_cases = {
+		-- bare `1` / `0` as last channel -> RGBA ("unit" alpha, RGB is colour-like)
+		{ input = "(217, 217, 217, 1)", expected_fmt = "rgba_tuple", expected_color = { r = 217, g = 217, b = 217, a = 1 } },
+		{ input = "(217, 217, 217, 0)", expected_fmt = "rgba_tuple", expected_color = { r = 217, g = 217, b = 217, a = 0 } },
+		-- bare `1` / `0` as first channel -> ARGB ("unit" alpha, RGB is colour-like)
+		{ input = "(1, 217, 217, 217)", expected_fmt = "argb_tuple", expected_color = { r = 217, g = 217, b = 217, a = 1 } },
+		{ input = "(0, 217, 217, 217)", expected_fmt = "argb_tuple", expected_color = { r = 217, g = 217, b = 217, a = 0 } },
+	}
+	for _, item in ipairs(edge_cases) do
+		local parsed, parsed_fmt = color.parse(item.input)
+		assert_eq(item.expected_color, parsed, item.input)
+		assert_eq(item.expected_fmt, parsed_fmt, item.input)
+	end
+
+	local invalid = color.parse("(1, 2, 3, 4)")
+	assert_eq(nil, invalid, "plain numeric tuples should not become ARGB solely because the first value is 1")
+
+	local matches = color.find_all("fg = Color(255, 255, 255, 0.8) bg = make_color(0.3, 255, 255, 255)")
+	assert_eq(2, #matches)
+	assert_eq("(255, 255, 255, 0.8)", matches[1].text)
+	assert_eq("rgba_tuple", matches[1].format)
+	assert_eq("(0.3, 255, 255, 255)", matches[2].text)
+	assert_eq("argb_tuple", matches[2].format)
+
+	local edge_matches = color.find_all("fg = Color(217, 217, 217, 1); bg = make_color(0, 217, 217, 217);")
+	assert_eq(2, #edge_matches)
+	assert_eq("(217, 217, 217, 1)", edge_matches[1].text)
+	assert_eq("rgba_tuple", edge_matches[1].format)
+	assert_eq("(0, 217, 217, 217)", edge_matches[2].text)
+	assert_eq("argb_tuple", edge_matches[2].format)
+
+	local semicolon_matches = color.find_all("case: (217, 217, 217, 1);")
+	assert_eq(1, #semicolon_matches)
+	assert_eq("(217, 217, 217, 1)", semicolon_matches[1].text)
+	assert_eq("rgba_tuple", semicolon_matches[1].format)
+
+	-- Verify that find_all also discovers `argb()` function-call syntax.
+	local argb_call_matches = color.find_all("color: argb(0.3, 255, 255, 255)")
+	assert_eq(1, #argb_call_matches)
+	assert_eq("argb(0.3, 255, 255, 255)", argb_call_matches[1].text)
+	assert_eq("argb", argb_call_matches[1].format)
+
+	-- Regression guard: the bare-tuple `%(` scanner must not absorb the inner
+	-- `(...)` portion of a function-call form (e.g. `rgba(...)`) and return
+	-- it as a separate match. Only one match should be produced here.
+	local rgba_matches = color.find_all("value = rgba(255, 255, 255, 0.8)")
+	assert_eq(1, #rgba_matches)
+	assert_eq("rgba(255, 255, 255, 0.8)", rgba_matches[1].text)
+	assert_eq("rgba", rgba_matches[1].format)
+end)
+
 test("window helper manages lifecycle, keymaps, title, and help", function()
 	require("chroma.highlights").set_highlights()
 	local window = require("chroma.window")

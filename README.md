@@ -9,7 +9,7 @@ Chroma provides a feature-rich, standalone floating UI to edit and preview color
 ## Features
 
 - **Interactive Color Field**: Navigate a 60x12 saturation-value grid and adjust hue, saturation, lightness, red, green, blue, and alpha sliders with real-time updates.
-- **Smart Target Detection**: Opens seeded with the color literal under your cursor or visual selection (supports CSS hex, rgb, rgba, hsl, hsla, hsv, and standard names).
+- **Smart Target Detection**: Opens seeded with the color literal under your cursor or visual selection (supports CSS hex, rgb, rgba, argb, hsl, hsla, hsv, RGBA/ARGB numeric tuples, and standard names).
 - **Dual-Pane Palette & Recents Manager**: Browse and select from saved palettes or recents. Built with scroll and cursor linkage, enabling inline label editing and disk serialization.
 - **Live Editor Replacements**: Highlights and replaces code color literals in the source buffer dynamically as you tweak values in the floating window.
 - **Zero Dependencies**: Self-contained floating UI built on top of native Neovim APIs.
@@ -78,8 +78,8 @@ chroma.palettes()                              -- Open palette manager
 
 ### Supported Formats
 
-- **Input formats**: `#rrggbb`, `#rrggbbaa`, `0xrrggbb`, `0xaarrggbb`, `rgb()`, `rgba()`, `hsl()`, `hsla()`, `hsv()`, and standard CSS color names.
-- **Output formats**: `hex` (`#rrggbb`), `hexa` (`#rrggbbaa`), `rgb0x` (`0xrrggbb`), `argb0x` (`0xaarrggbb`), `rgb`, `rgba`, `hsl`, `hsla`, `hsv`.
+- **Input formats**: `#rrggbb`, `#rrggbbaa`, `0xrrggbb`, `0xaarrggbb`, `rgb()`, `rgba()`, `argb()`, RGBA tuples (`(255, 255, 255, 0.8)`, `(217, 217, 217, 1)`), ARGB tuples (`(0.3, 255, 255, 255)`, `(0, 217, 217, 217)`), `hsl()`, `hsla()`, `hsv()`, and standard CSS color names.
+- **Output formats**: `hex` (`#rrggbb`), `hexa` (`#rrggbbaa`), `rgb0x` (`0xrrggbb`), `argb0x` (`0xaarrggbb`), `rgb`, `rgba`, `argb`, `rgba_tuple`, `argb_tuple`, `hsl`, `hsla`, `hsv`.
 
 ---
 

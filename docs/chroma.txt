@@ -37,8 +37,10 @@ COMMANDS                                                        *chroma-commands
                                                         *:ColorPicker*
 :ColorPicker [color]
     Open Chroma, optionally seeded with a color value. Supported values include
-    #rrggbb, #rrggbbaa, 0xrrggbb, 0xaarrggbb, rgb(), rgba(), hsl(), hsla(),
-    hsv(), and common CSS color names.
+    #rrggbb, #rrggbbaa, 0xrrggbb, 0xaarrggbb, rgb(), rgba(), argb(),
+    RGBA tuples such as (255, 255, 255, 0.8) and (217, 217, 217, 1),
+    ARGB tuples such as (0.3, 255, 255, 255) and (0, 217, 217, 217),
+    hsl(), hsla(), hsv(), and common CSS color names.
 
                                                         *:ColorPickerCursor*
 :ColorPickerCursor
@@ -59,8 +61,8 @@ COMMANDS                                                        *chroma-commands
                                                         *:ColorPickerCopy*
 :ColorPickerCopy [format]
     Copy the color under cursor or visual selection, optionally converted to a
-    format. Built-in formats: hex, hexa, rgb0x, argb0x, rgb, rgba, hsl, hsla,
-    hsv.
+    format. Built-in formats: hex, hexa, rgb0x, argb0x, rgb, rgba, argb,
+    rgba_tuple, argb_tuple, hsl, hsla, hsv.
 
 ===============================================================================
 LUA API                                                            *chroma-api*
