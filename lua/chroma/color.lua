@@ -32,6 +32,10 @@ M.format_labels = {
 	hsv = "HSV",
 }
 
+-- Built-in colour function names whose prefix is part of the format itself
+-- (i.e. `rgba(...)` owns the `rgba` prefix).  Identifiers NOT in this set
+-- are treated as arbitrary language wrappers where only the inner arguments
+-- should be replaced.
 local named_paren_formats = {
 	rgb = true,
 	rgba = true,
@@ -81,6 +85,8 @@ M.channel_defs = {
 	{ key = "a", label = "Alpha", min = 0, max = 100, step = 1, large_step = 10, unit = "%" },
 }
 
+-- Clamp `value` into [min, max], coercing non-numbers and NaN to `min`.
+-- The `value ~= value` idiom detects NaN (IEEE 754: NaN ≠ NaN).
 local function clamp(value, min, max)
 	value = tonumber(value) or min
 	if value ~= value then
@@ -95,23 +101,23 @@ local function clamp(value, min, max)
 	return value
 end
 
+-- Round `value` to `places` decimal digits (default: integer rounding).
 local function round(value, places)
 	local scale = 10 ^ (places or 0)
 	return math.floor(value * scale + 0.5) / scale
 end
 
-local function trim(value)
-	return (tostring(value or ""):gsub("^%s+", ""):gsub("%s+$", ""))
-end
+-- Strip leading and trailing whitespace; always returns a string.
+local function trim(value) return (tostring(value or ""):gsub("^%s+", ""):gsub("%s+$", "")) end
 
-local function component_to_hex(value)
-	return string.format("%02x", clamp(round(value), 0, 255))
-end
+-- Encode an RGB channel (0-255) as a two-digit lowercase hex string.
+local function component_to_hex(value) return string.format("%02x", clamp(round(value), 0, 255)) end
 
-local function alpha_to_hex(value)
-	return string.format("%02x", clamp(round((value or 1) * 255), 0, 255))
-end
+-- Encode a normalized alpha (0-1 float) as a two-digit lowercase hex byte.
+local function alpha_to_hex(value) return string.format("%02x", clamp(round((value or 1) * 255), 0, 255)) end
 
+-- Expand CSS shorthand hex (#rgb → #rrggbb, #rgba → #rrggbbaa) by
+-- doubling each nibble character.
 local function expand_hex(hex)
 	if #hex == 3 or #hex == 4 then
 		return (hex:gsub(".", "%0%0"))
@@ -119,6 +125,8 @@ local function expand_hex(hex)
 	return hex
 end
 
+-- Parse a hex colour string in any common notation: #rgb, #rgba, #rrggbb,
+-- #rrggbbaa, 0xRRGGBB, or 0xAARRGGBB.  Returns (color, format) or nil.
 local function parse_hex(value)
 	local text = trim(value):lower()
 	local hex = text:match("^#?([%da-f]+)$")
@@ -160,6 +168,9 @@ local function parse_hex(value)
 	return { r = r, g = g, b = b, a = a }, fmt
 end
 
+-- Split a CSS-style argument list on commas or whitespace.  Handles the
+-- modern CSS `r g b / a` slash-separated alpha notation by folding it
+-- into a flat comma-separated list.
 local function split_args(args)
 	args = trim(args):gsub("%s*/%s*", " / ")
 	local parts = {}
@@ -180,11 +191,17 @@ local function split_args(args)
 	return parts
 end
 
+-- Leniently extract the first numeric value from a string, ignoring any
+-- surrounding non-numeric characters (units, whitespace).
 local function parse_number(value)
 	value = trim(value):lower()
 	return tonumber(value:match("[-+]?%d*%.?%d+"))
 end
 
+-- Parse an alpha value from a string.  Understands three conventions:
+--   • Percentage with suffix:  "80%" → 0.8
+--   • Decimal fraction:        "0.8" → 0.8
+--   • Design-tool integer > 1: "80"  → 0.8  (treated as percent)
 local function parse_alpha(value)
 	if value == nil or trim(value) == "" then
 		return 1
@@ -208,6 +225,8 @@ local function parse_alpha(value)
 	return clamp(number, 0, 1)
 end
 
+-- Parse a single RGB component, accepting both absolute values (0-255)
+-- and percentages ("50%" → 128).  Returns a clamped, rounded integer.
 local function parse_rgb_component(value)
 	local text = trim(value)
 	local number = parse_number(text)
@@ -224,9 +243,10 @@ end
 
 -- Stricter variant of `parse_number` that rejects any leading/trailing
 -- non-numeric characters and explicitly signals whether the value was a
--- percentage. Returns three values: the parsed number, a boolean
+-- percentage.  Returns three values: the parsed number, a boolean
 -- `is_percent`, and the raw (trimmed, stripped of %) string so callers can
 -- inspect it directly (e.g. to detect a decimal point).
+---@return number?, boolean, string
 local function parse_strict_number(value)
 	local text = trim(value):lower()
 	local is_percent = false
@@ -237,10 +257,12 @@ local function parse_strict_number(value)
 	if not text:match("^[-+]?%d*%.?%d+$") then
 		return nil
 	end
-	---@return number?, boolean, string
 	return tonumber(text), is_percent, text
 end
 
+-- Strict variant of `parse_rgb_component` for bare-tuple disambiguation.
+-- Uses `parse_strict_number` to reject values with spurious trailing text
+-- that the lenient parser would accept.
 local function parse_tuple_rgb_component(value)
 	local number, is_percent = parse_strict_number(value)
 	if not number then
@@ -289,6 +311,8 @@ local function parse_tuple_alpha(value)
 	return nil
 end
 
+-- Parse a CSS hue value supporting degree (default), `turn`, and `rad`
+-- unit suffixes.  The result is normalised into [0, 360).
 local function parse_hue(value)
 	local text = trim(value):lower()
 	local number = parse_number(text)
@@ -305,6 +329,8 @@ local function parse_hue(value)
 	return ((number % 360) + 360) % 360
 end
 
+-- Parse a saturation / lightness / value percentage.  Values ≤ 1 without
+-- an explicit `%` suffix are auto-scaled (e.g. `0.7` → `70`).
 local function parse_percent(value)
 	local text = trim(value)
 	local number = parse_number(text)
@@ -482,6 +508,9 @@ function M.from_hsv(h, s, v, a)
 	return M.normalize({ r = (r + m) * 255, g = (g + m) * 255, b = (b + m) * 255, a = a == nil and 1 or a })
 end
 
+-- Parse `rgb(r, g, b)` or `rgba(r, g, b, a)` function-call syntax.
+-- The detected output format is `rgba` when alpha is present or the caller
+-- explicitly passed `"rgba"` as `fmt`.
 local function parse_rgb(args, fmt)
 	local parts = split_args(args)
 	if #parts < 3 then
@@ -597,8 +626,7 @@ local function parse_tuple(args)
 	local last_alpha, last_alpha_kind = parse_tuple_alpha(parts[4])
 
 	-- RGBA layout: last element is the alpha.
-	local last_wins = last_alpha
-		and (not first_alpha or (last_alpha_kind == "explicit" and first_alpha_kind == "unit"))
+	local last_wins = last_alpha and (not first_alpha or (last_alpha_kind == "explicit" and first_alpha_kind == "unit"))
 	-- ARGB layout: first element is the alpha.
 	local first_wins = first_alpha
 		and (not last_alpha or (first_alpha_kind == "explicit" and last_alpha_kind == "unit"))
@@ -638,6 +666,7 @@ local function parse_prefixed_tuple(args)
 	return M.normalize({ r = r, g = g, b = b, a = 1 }), "rgb"
 end
 
+-- Parse `hsl(h, s%, l%)` or `hsla(h, s%, l%, a)` function-call syntax.
 local function parse_hsl(args, fmt)
 	local parts = split_args(args)
 	if #parts < 3 then
@@ -656,6 +685,7 @@ local function parse_hsl(args, fmt)
 	return M.from_hsl(h, s, l, a), detected
 end
 
+-- Parse `hsv(h, s%, v%)` (or the `hsb` alias) function-call syntax.
 local function parse_hsv(args)
 	local parts = split_args(args)
 	if #parts < 3 then
@@ -765,15 +795,17 @@ function M.parse(value)
 	return nil, nil, ("could not parse color value: %s"):format(value)
 end
 
-local function percent(value)
-	return tostring(round(value)) .. "%"
-end
+-- Format a number as a rounded percentage string (e.g. 75 → "75%").
+local function percent(value) return tostring(round(value)) .. "%" end
 
-local function alpha_string(value)
-	return ("%.2f"):format(round(value, 2)):gsub("0+$", ""):gsub("%.$", "")
-end
+-- Format an alpha float as a compact decimal string, stripping trailing
+-- zeros and a bare decimal point (e.g. 0.80 → "0.8", 1.00 → "1").
+local function alpha_string(value) return ("%.2f"):format(round(value, 2)):gsub("0+$", ""):gsub("%.$", "") end
 
 ---Format just the comma-separated argument list for parenthesised formats.
+---Used by `State:replacement_text()` when `replace_mode == "args"` so that
+---prefixed wrappers like `Color(...)` keep their prefix intact and only
+---the inner arguments are substituted.
 ---@param c DotconfigColor
 ---@param fmt string
 ---@return string
@@ -799,6 +831,10 @@ function M.format_args(c, fmt)
 	if fmt == "rgba" then
 		return ("%d, %d, %d, %s"):format(c.r, c.g, c.b, alpha_string(c.a))
 	end
+	-- Safety net: formats without a parenthesised representation (hex, hexa,
+	-- etc.) fall through to the full formatter.  In practice this path is
+	-- unreachable because `replacement_text()` only routes here for rgb/rgba/
+	-- argb formats, but the fallback keeps the function total.
 	return M.format(c, fmt)
 end
 
@@ -936,11 +972,14 @@ function M.contrast(c)
 	return luminance > 0.5 and "#000000" or "#ffffff"
 end
 
--- Forward declaration: `add_match` (defined next) calls `overlaps`, and
--- `overlaps` is defined immediately after. The upvalue is shared between
--- both closures so they can reference each other without a module-level table.
+-- Forward declaration so `add_match` can call `overlaps` before its
+-- definition.  The upvalue is shared between both closures.
 local overlaps
 
+-- Attempt to register a candidate span [start_idx, end_idx] as a colour
+-- match.  Skips the candidate if it overlaps an already-registered match,
+-- then parses the text and enriches the match with a replacement span
+-- (for prefixed tuples) when applicable.
 local function add_match(matches, line, start_idx, end_idx)
 	local candidate = { start_col = start_idx - 1, end_col = end_idx }
 	for _, existing in ipairs(matches) do
@@ -971,11 +1010,17 @@ local function add_match(matches, line, start_idx, end_idx)
 	end
 end
 
-function overlaps(a, b)
-	return a.start_col < b.end_col and b.start_col < a.end_col
-end
+-- Return true when two match spans [start_col, end_col) overlap.
+function overlaps(a, b) return a.start_col < b.end_col and b.start_col < a.end_col end
 
----Find parseable color literals in a single line of text.
+---Find all parseable color literals in a single line of text.
+---
+---Runs five sequential scanning passes, each targeting a different
+---syntactic family (hex, 0x-prefixed, function-calls, bare tuples, named
+---colors).  Earlier passes register their spans so that later, broader
+---passes do not create duplicate matches for text already claimed by a
+---more specific pattern (e.g. `rgba(...)` prevents the bare-tuple pass
+---from also matching its inner `(...)`).
 ---
 ---The returned columns are byte-based and compatible with `nvim_buf_set_text`.
 ---@param line string
@@ -1045,9 +1090,7 @@ function M.find_all(line)
 		start = e + 1
 	end
 
-	table.sort(matches, function(a, b)
-		return a.start_col < b.start_col
-	end)
+	table.sort(matches, function(a, b) return a.start_col < b.start_col end)
 	return matches
 end
 

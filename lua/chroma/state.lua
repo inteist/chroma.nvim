@@ -33,13 +33,13 @@ local current_state ---@type ChromaState?
 
 ---Return the current configuration table (read-only access for other modules).
 ---@return table
-local function get_config()
-	return config
-end
+local function get_config() return config end
 
 -- ── Target location helpers ──────────────────────────────────────────────────
 
----Locate a color in the current visual selection.
+---Locate a color in the current visual selection and narrow the
+---replacement region to just the inner arguments when the match is a
+---prefixed tuple (e.g. `Color(r, g, b)` → replace only `r, g, b`).
 ---@return table?
 local function locate_visual_target()
 	local start_pos = vim.fn.getpos("'<")
@@ -86,7 +86,9 @@ local function locate_visual_target()
 	return nil
 end
 
----Locate a color literal under the cursor.
+---Locate a color literal under the cursor and build a target table.
+---When the match includes a replacement span (prefixed tuples), the
+---target’s start/end columns point at the inner arguments only.
 ---@return table?
 local function locate_cursor_target()
 	local buf = vim.api.nvim_get_current_buf()
@@ -239,27 +241,25 @@ function State.new(opts)
 		live_preview = opts.live_preview ~= false and config.live_preview,
 	}, State)
 
-	self.preview = util.throttle(function()
-		self:sync_editor_preview()
-	end, 16)
+	self.preview = util.throttle(function() self:sync_editor_preview() end, 16)
 
 	return self
 end
 
 ---Whether the picker window is currently open.
 ---@return boolean
-function State:is_open()
-	return self.win and self.win.win and vim.api.nvim_win_is_valid(self.win.win)
-end
+function State:is_open() return self.win and self.win.win and vim.api.nvim_win_is_valid(self.win.win) end
 
 ---Format the current color in the active (or given) format.
 ---@param fmt? string
 ---@return string
-function State:current_text(fmt)
-	return color.format(self.color, fmt or self.format)
-end
+function State:current_text(fmt) return color.format(self.color, fmt or self.format) end
 
 ---Format the text that should be written back to the source target.
+---
+---When the target uses `replace_mode = "args"` (prefixed tuples like
+---`Color(...)`), only the inner comma-separated arguments are returned,
+---preserving the surrounding wrapper intact in the source buffer.
 ---@param fmt? string
 ---@return string
 function State:replacement_text(fmt)
@@ -461,6 +461,8 @@ function State:sync_editor_preview()
 		return
 	end
 
+	-- Branch 1: target exists in the source buffer — update the replacement
+	-- region in-place and show a colour swatch extmark after it.
 	local target = self.target
 	if target and vim.api.nvim_buf_is_valid(target.buf) then
 		vim.api.nvim_buf_clear_namespace(target.buf, preview_ns, 0, -1)
@@ -491,6 +493,8 @@ function State:sync_editor_preview()
 		return
 	end
 
+	-- Branch 2: no target — show a virtual text swatch at the cursor
+	-- position in the source buffer as a "detached" preview.
 	if vim.api.nvim_buf_is_valid(self.source_buf) then
 		vim.api.nvim_buf_clear_namespace(self.source_buf, preview_ns, 0, -1)
 		pcall(vim.api.nvim_buf_set_extmark, self.source_buf, preview_ns, self.source_pos[1] - 1, self.source_pos[2], {
@@ -536,6 +540,8 @@ end
 
 ---Confirm the current color: write to buffer, save to recents, close window.
 function State:confirm()
+	-- Use replacement_text() so prefixed tuples only replace the inner args,
+	-- leaving the wrapper (e.g. `Color(...)`) intact in the source buffer.
 	local text = self:replacement_text()
 	self.closed = true
 	if self.target and vim.api.nvim_buf_is_valid(self.target.buf) and vim.bo[self.target.buf].modifiable then
@@ -666,15 +672,11 @@ M.State = State
 
 ---Return the currently active picker state.
 ---@return ChromaState?
-function M.current()
-	return current_state
-end
+function M.current() return current_state end
 
 ---Set the module-level current state reference.
 ---@param state ChromaState?
-function M.set_current(state)
-	current_state = state
-end
+function M.set_current(state) current_state = state end
 
 ---Expose target location helpers for other modules.
 M.locate_visual_target = locate_visual_target
@@ -688,8 +690,6 @@ M.get_config = get_config
 
 ---Configure the state module.
 ---@param opts? table
-function M.setup(opts)
-	config = vim.tbl_deep_extend("force", config, opts or {})
-end
+function M.setup(opts) config = vim.tbl_deep_extend("force", config, opts or {}) end
 
 return M

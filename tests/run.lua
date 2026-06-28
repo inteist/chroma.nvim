@@ -54,6 +54,8 @@ test("utility helpers use native Neovim APIs", function()
 	assert_eq("#abcdef", util.theme_color("ChromaMissingHighlight", "fg", "#abcdef"))
 
 	local calls = {}
+	-- ── Utility helpers ──────────────────────────────────────────────────────────
+
 	local throttled = util.throttle(function(value) calls[#calls + 1] = value end, 20)
 	throttled("first")
 	throttled("second")
@@ -76,6 +78,8 @@ test("input prompts delegate to vim.ui.input", function()
 
 	input.prompt({ prompt = "Color value", default = "#000000" }, function(value) result = value end)
 
+	-- ── Input prompts ────────────────────────────────────────────────────────────
+
 	vim.ui.input = original
 	assert_eq("Color value", seen_opts.prompt)
 	assert_eq("#000000", seen_opts.default)
@@ -96,6 +100,8 @@ test("color parser supports 0x-prefixed RGB and ARGB hex", function()
 	assert_eq("0xff474a54", color.format(argb, "argb0x"))
 
 	local translucent = color.parse("0x80474A54")
+	-- ── Color parsing & formatting ───────────────────────────────────────────────
+
 	assert_eq(71, translucent.r)
 	assert_eq(74, translucent.g)
 	assert_eq(84, translucent.b)
@@ -223,6 +229,11 @@ test("prefixed tuple replacement preserves the original prefix", function()
 	assert_eq("255, 255, 255, 0.8", target.original_text)
 	assert_eq("args", target.replace_mode)
 
+	-- ── Prefixed tuple replacement ───────────────────────────────────────────────
+
+	-- End-to-end test: creates a scratch buffer with a prefixed tuple, locates
+	-- the target under cursor, opens a picker state, changes the color, confirms,
+	-- and verifies that only the inner arguments were replaced in the buffer.
 	local picker = state_mod.State.new({ target = target, live_preview = false })
 	picker.color = { r = 1, g = 2, b = 3, a = 0.5 }
 	picker.format = "rgba"
@@ -249,6 +260,8 @@ test("window helper manages lifecycle, keymaps, title, and help", function()
 		text = { "hello" },
 		title = "Test",
 		footer = { { " q ", "ChromaFooterKey" } },
+		-- ── Window helper ────────────────────────────────────────────────────────────
+
 		keys = {
 			q = {
 				function(current) mapped = current == win end,
@@ -310,6 +323,8 @@ test("palette manager opens with the built-in window helper", function()
 	assert_true(text:find("#ff00ff", 1, true) ~= nil, "palette buffer should render stored colors")
 	pcall(vim.api.nvim_win_close, palette_win, true)
 end)
+
+-- ── Palette manager ──────────────────────────────────────────────────────────
 
 test("palette store supports moving colors between palettes", function()
 	local store = require("chroma.store")
@@ -436,6 +451,7 @@ for _, item in ipairs(tests) do
 	local ok, err = xpcall(item.fn, debug.traceback)
 	if ok then
 		io.stdout:write("✓ " .. item.name .. "\n")
+	-- ── Integration ──────────────────────────────────────────────────────────────
 	else
 		failures[#failures + 1] = "✗ " .. item.name .. "\n" .. err
 	end
