@@ -1,0 +1,6 @@
+pre-commit:
+  commands:
+    stylua:
+      glob: "*.lua"
+      run: stylua --config-path .stylua.toml {staged_files}
+      stage_fixed: true
