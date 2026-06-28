@@ -1,13 +1,9 @@
 local failures = {}
 local tests = {}
 
-local function test(name, fn)
-	tests[#tests + 1] = { name = name, fn = fn }
-end
+local function test(name, fn) tests[#tests + 1] = { name = name, fn = fn } end
 
-local function fail(message)
-	error(message, 2)
-end
+local function fail(message) error(message, 2) end
 
 local function assert_true(value, message)
 	if not value then
@@ -46,13 +42,9 @@ local function assert_near(expected, actual, tolerance, message)
 	end
 end
 
-local function valid_win(win)
-	return win ~= nil and vim.api.nvim_win_is_valid(win)
-end
+local function valid_win(win) return win ~= nil and vim.api.nvim_win_is_valid(win) end
 
-local function valid_buf(buf)
-	return buf ~= nil and vim.api.nvim_buf_is_valid(buf)
-end
+local function valid_buf(buf) return buf ~= nil and vim.api.nvim_buf_is_valid(buf) end
 
 test("utility helpers use native Neovim APIs", function()
 	local util = require("chroma.util")
@@ -62,15 +54,13 @@ test("utility helpers use native Neovim APIs", function()
 	assert_eq("#abcdef", util.theme_color("ChromaMissingHighlight", "fg", "#abcdef"))
 
 	local calls = {}
-	local throttled = util.throttle(function(value)
-		calls[#calls + 1] = value
-	end, 20)
+	-- ── Utility helpers ──────────────────────────────────────────────────────────
+
+	local throttled = util.throttle(function(value) calls[#calls + 1] = value end, 20)
 	throttled("first")
 	throttled("second")
 	throttled("third")
-	vim.wait(100, function()
-		return #calls >= 2
-	end)
+	vim.wait(100, function() return #calls >= 2 end)
 	assert_eq("first", calls[1], "throttle should invoke the leading call immediately")
 	assert_eq("third", calls[#calls], "throttle should replay the latest queued call")
 	assert_true(#calls <= 2, "throttle should coalesce calls during the cooldown")
@@ -86,9 +76,9 @@ test("input prompts delegate to vim.ui.input", function()
 		callback("#abcdef")
 	end
 
-	input.prompt({ prompt = "Color value", default = "#000000" }, function(value)
-		result = value
-	end)
+	input.prompt({ prompt = "Color value", default = "#000000" }, function(value) result = value end)
+
+	-- ── Input prompts ────────────────────────────────────────────────────────────
 
 	vim.ui.input = original
 	assert_eq("Color value", seen_opts.prompt)
@@ -110,6 +100,8 @@ test("color parser supports 0x-prefixed RGB and ARGB hex", function()
 	assert_eq("0xff474a54", color.format(argb, "argb0x"))
 
 	local translucent = color.parse("0x80474A54")
+	-- ── Color parsing & formatting ───────────────────────────────────────────────
+
 	assert_eq(71, translucent.r)
 	assert_eq(74, translucent.g)
 	assert_eq(84, translucent.b)
@@ -134,31 +126,43 @@ test("color formatter preserves zero alpha", function()
 	assert_eq("0x00010203", color.format({ r = 1, g = 2, b = 3, a = 0 }, "argb0x"))
 end)
 
-test("color parser supports rgba and argb numeric tuples", function()
+test("color parser folds parenthesized rgb rgba and argb into regular formats", function()
 	local color = require("chroma.color")
 
-	local rgba_tuple, rgba_tuple_fmt = color.parse("(255, 255, 255, 0.8)")
-	assert_eq({ r = 255, g = 255, b = 255, a = 0.8 }, rgba_tuple)
-	assert_eq("rgba_tuple", rgba_tuple_fmt)
-	assert_eq("(255, 255, 255, 0.8)", color.format(rgba_tuple, "rgba_tuple"))
+	local parsed_rgba, parsed_rgba_fmt = color.parse("(255, 255, 255, 0.8)")
+	assert_eq({ r = 255, g = 255, b = 255, a = 0.8 }, parsed_rgba)
+	assert_eq("rgba", parsed_rgba_fmt)
+	assert_eq("rgba(255, 255, 255, 0.8)", color.format(parsed_rgba, parsed_rgba_fmt))
 
-	local argb_tuple, argb_tuple_fmt = color.parse("(0.3, 255, 255, 255)")
-	assert_eq({ r = 255, g = 255, b = 255, a = 0.3 }, argb_tuple)
-	assert_eq("argb_tuple", argb_tuple_fmt)
-	assert_eq("(0.3, 255, 255, 255)", color.format(argb_tuple, "argb_tuple"))
+	local parsed_argb, parsed_argb_fmt = color.parse("(0.3, 255, 255, 255)")
+	assert_eq({ r = 255, g = 255, b = 255, a = 0.3 }, parsed_argb)
+	assert_eq("argb", parsed_argb_fmt)
+	assert_eq("argb(0.3, 255, 255, 255)", color.format(parsed_argb, parsed_argb_fmt))
 
 	local argb_call, argb_call_fmt = color.parse("argb(0.3, 255, 255, 255)")
 	assert_eq({ r = 255, g = 255, b = 255, a = 0.3 }, argb_call)
 	assert_eq("argb", argb_call_fmt)
 	assert_eq("argb(0.3, 255, 255, 255)", color.format(argb_call, "argb"))
 
+	local prefixed_rgb, prefixed_rgb_fmt = color.parse("Color(255, 255, 255)")
+	assert_eq({ r = 255, g = 255, b = 255, a = 1 }, prefixed_rgb)
+	assert_eq("rgb", prefixed_rgb_fmt)
+
+	local prefixed_rgba, prefixed_rgba_fmt = color.parse("Color(255, 255, 255, 0.8)")
+	assert_eq({ r = 255, g = 255, b = 255, a = 0.8 }, prefixed_rgba)
+	assert_eq("rgba", prefixed_rgba_fmt)
+
+	local prefixed_argb, prefixed_argb_fmt = color.parse("make_color(0.3, 255, 255, 255)")
+	assert_eq({ r = 255, g = 255, b = 255, a = 0.3 }, prefixed_argb)
+	assert_eq("argb", prefixed_argb_fmt)
+
 	local edge_cases = {
 		-- bare `1` / `0` as last channel -> RGBA ("unit" alpha, RGB is colour-like)
-		{ input = "(217, 217, 217, 1)", expected_fmt = "rgba_tuple", expected_color = { r = 217, g = 217, b = 217, a = 1 } },
-		{ input = "(217, 217, 217, 0)", expected_fmt = "rgba_tuple", expected_color = { r = 217, g = 217, b = 217, a = 0 } },
+		{ input = "(217, 217, 217, 1)", expected_fmt = "rgba", expected_color = { r = 217, g = 217, b = 217, a = 1 } },
+		{ input = "(217, 217, 217, 0)", expected_fmt = "rgba", expected_color = { r = 217, g = 217, b = 217, a = 0 } },
 		-- bare `1` / `0` as first channel -> ARGB ("unit" alpha, RGB is colour-like)
-		{ input = "(1, 217, 217, 217)", expected_fmt = "argb_tuple", expected_color = { r = 217, g = 217, b = 217, a = 1 } },
-		{ input = "(0, 217, 217, 217)", expected_fmt = "argb_tuple", expected_color = { r = 217, g = 217, b = 217, a = 0 } },
+		{ input = "(1, 217, 217, 217)", expected_fmt = "argb", expected_color = { r = 217, g = 217, b = 217, a = 1 } },
+		{ input = "(0, 217, 217, 217)", expected_fmt = "argb", expected_color = { r = 217, g = 217, b = 217, a = 0 } },
 	}
 	for _, item in ipairs(edge_cases) do
 		local parsed, parsed_fmt = color.parse(item.input)
@@ -168,25 +172,31 @@ test("color parser supports rgba and argb numeric tuples", function()
 
 	local invalid = color.parse("(1, 2, 3, 4)")
 	assert_eq(nil, invalid, "plain numeric tuples should not become ARGB solely because the first value is 1")
+	local coordinate_like = color.parse("Point(1, 2, 3)")
+	assert_eq(nil, coordinate_like, "generic prefixed triples should still look color-like before becoming RGB")
 
 	local matches = color.find_all("fg = Color(255, 255, 255, 0.8) bg = make_color(0.3, 255, 255, 255)")
 	assert_eq(2, #matches)
-	assert_eq("(255, 255, 255, 0.8)", matches[1].text)
-	assert_eq("rgba_tuple", matches[1].format)
-	assert_eq("(0.3, 255, 255, 255)", matches[2].text)
-	assert_eq("argb_tuple", matches[2].format)
+	assert_eq("Color(255, 255, 255, 0.8)", matches[1].text)
+	assert_eq("rgba", matches[1].format)
+	assert_eq("255, 255, 255, 0.8", matches[1].replace_text)
+	assert_eq("args", matches[1].replace_mode)
+	assert_eq("make_color(0.3, 255, 255, 255)", matches[2].text)
+	assert_eq("argb", matches[2].format)
+	assert_eq("0.3, 255, 255, 255", matches[2].replace_text)
+	assert_eq("args", matches[2].replace_mode)
 
 	local edge_matches = color.find_all("fg = Color(217, 217, 217, 1); bg = make_color(0, 217, 217, 217);")
 	assert_eq(2, #edge_matches)
-	assert_eq("(217, 217, 217, 1)", edge_matches[1].text)
-	assert_eq("rgba_tuple", edge_matches[1].format)
-	assert_eq("(0, 217, 217, 217)", edge_matches[2].text)
-	assert_eq("argb_tuple", edge_matches[2].format)
+	assert_eq("Color(217, 217, 217, 1)", edge_matches[1].text)
+	assert_eq("rgba", edge_matches[1].format)
+	assert_eq("make_color(0, 217, 217, 217)", edge_matches[2].text)
+	assert_eq("argb", edge_matches[2].format)
 
 	local semicolon_matches = color.find_all("case: (217, 217, 217, 1);")
 	assert_eq(1, #semicolon_matches)
 	assert_eq("(217, 217, 217, 1)", semicolon_matches[1].text)
-	assert_eq("rgba_tuple", semicolon_matches[1].format)
+	assert_eq("rgba", semicolon_matches[1].format)
 
 	-- Verify that find_all also discovers `argb()` function-call syntax.
 	local argb_call_matches = color.find_all("color: argb(0.3, 255, 255, 255)")
@@ -195,12 +205,45 @@ test("color parser supports rgba and argb numeric tuples", function()
 	assert_eq("argb", argb_call_matches[1].format)
 
 	-- Regression guard: the bare-tuple `%(` scanner must not absorb the inner
-	-- `(...)` portion of a function-call form (e.g. `rgba(...)`) and return
-	-- it as a separate match. Only one match should be produced here.
-	local rgba_matches = color.find_all("value = rgba(255, 255, 255, 0.8)")
-	assert_eq(1, #rgba_matches)
+	-- `(...)` portion of function-call forms and return duplicate or prefixless
+	-- matches. Only one match should be produced for each prefixed value.
+	local rgba_matches = color.find_all("value = rgba(255, 255, 255, 0.8) other = Color(255, 255, 255, 0.8)")
+	assert_eq(2, #rgba_matches)
 	assert_eq("rgba(255, 255, 255, 0.8)", rgba_matches[1].text)
 	assert_eq("rgba", rgba_matches[1].format)
+	assert_eq("Color(255, 255, 255, 0.8)", rgba_matches[2].text)
+	assert_eq("rgba", rgba_matches[2].format)
+end)
+
+test("prefixed tuple replacement preserves the original prefix", function()
+	local state_mod = require("chroma.state")
+	local buf = vim.api.nvim_create_buf(false, true)
+	local old_buf = vim.api.nvim_get_current_buf()
+	local line = "fg = Color(255, 255, 255, 0.8)"
+
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, { line })
+	vim.api.nvim_set_current_buf(buf)
+	vim.api.nvim_win_set_cursor(0, { 1, line:find("Color") - 1 })
+
+	local target = state_mod.locate_cursor_target()
+	assert_eq("255, 255, 255, 0.8", target.original_text)
+	assert_eq("args", target.replace_mode)
+
+	-- ── Prefixed tuple replacement ───────────────────────────────────────────────
+
+	-- End-to-end test: creates a scratch buffer with a prefixed tuple, locates
+	-- the target under cursor, opens a picker state, changes the color, confirms,
+	-- and verifies that only the inner arguments were replaced in the buffer.
+	local picker = state_mod.State.new({ target = target, live_preview = false })
+	picker.color = { r = 1, g = 2, b = 3, a = 0.5 }
+	picker.format = "rgba"
+	picker:confirm()
+
+	local updated = vim.api.nvim_buf_get_lines(buf, 0, 1, false)[1]
+	assert_eq("fg = Color(1, 2, 3, 0.5)", updated)
+
+	vim.api.nvim_set_current_buf(old_buf)
+	vim.api.nvim_buf_delete(buf, { force = true })
 end)
 
 test("window helper manages lifecycle, keymaps, title, and help", function()
@@ -217,23 +260,19 @@ test("window helper manages lifecycle, keymaps, title, and help", function()
 		text = { "hello" },
 		title = "Test",
 		footer = { { " q ", "ChromaFooterKey" } },
+		-- ── Window helper ────────────────────────────────────────────────────────────
+
 		keys = {
 			q = {
-				function(current)
-					mapped = current == win
-				end,
+				function(current) mapped = current == win end,
 				desc = "Mark",
 			},
 			["?"] = {
-				function(current)
-					current:toggle_help({ col_width = 24, key_width = 8 })
-				end,
+				function(current) current:toggle_help({ col_width = 24, key_width = 8 }) end,
 				desc = "Help",
 			},
 		},
-		on_close = function(current)
-			closed = current == win
-		end,
+		on_close = function(current) closed = current == win end,
 	})
 
 	assert_false(win:valid(), "show=false should defer opening")
@@ -241,9 +280,7 @@ test("window helper manages lifecycle, keymaps, title, and help", function()
 	assert_true(win:valid(), "window should be valid after show")
 	assert_eq({ "hello" }, vim.api.nvim_buf_get_lines(win.buf, 0, -1, false))
 
-	vim.api.nvim_win_call(win.win, function()
-		vim.cmd("normal q")
-	end)
+	vim.api.nvim_win_call(win.win, function() vim.cmd("normal q") end)
 	assert_true(mapped, "buffer-local keymap should receive the ChromaWindow instance")
 
 	win:toggle_help({ col_width = 24, key_width = 8 })
@@ -286,6 +323,8 @@ test("palette manager opens with the built-in window helper", function()
 	assert_true(text:find("#ff00ff", 1, true) ~= nil, "palette buffer should render stored colors")
 	pcall(vim.api.nvim_win_close, palette_win, true)
 end)
+
+-- ── Palette manager ──────────────────────────────────────────────────────────
 
 test("palette store supports moving colors between palettes", function()
 	local store = require("chroma.store")
@@ -379,9 +418,7 @@ test("palette buffer supports saving label edits via BufWriteCmd in nested layou
 	vim.api.nvim_buf_set_lines(right_buf, 2, 3, false, { " HotPink" })
 
 	-- Trigger BufWriteCmd
-	vim.api.nvim_buf_call(right_buf, function()
-		vim.cmd("write")
-	end)
+	vim.api.nvim_buf_call(right_buf, function() vim.cmd("write") end)
 
 	-- Check that the store has been updated
 	local items = store.items()
@@ -414,6 +451,7 @@ for _, item in ipairs(tests) do
 	local ok, err = xpcall(item.fn, debug.traceback)
 	if ok then
 		io.stdout:write("✓ " .. item.name .. "\n")
+	-- ── Integration ──────────────────────────────────────────────────────────────
 	else
 		failures[#failures + 1] = "✗ " .. item.name .. "\n" .. err
 	end
