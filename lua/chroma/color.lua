@@ -14,8 +14,6 @@ M.formats = {
 	"rgb",
 	"rgba",
 	"argb",
-	"rgba_tuple",
-	"argb_tuple",
 	"hsl",
 	"hsla",
 	"hsv",
@@ -29,11 +27,19 @@ M.format_labels = {
 	rgb = "RGB",
 	rgba = "RGBA",
 	argb = "ARGB",
-	rgba_tuple = "RGBA Tuple",
-	argb_tuple = "ARGB Tuple",
 	hsl = "HSL",
 	hsla = "HSLA",
 	hsv = "HSV",
+}
+
+local named_paren_formats = {
+	rgb = true,
+	rgba = true,
+	argb = true,
+	hsl = true,
+	hsla = true,
+	hsv = true,
+	hsb = true,
 }
 
 -- Common CSS color names. The parser intentionally keeps this list compact:
@@ -555,7 +561,8 @@ local function tuple_alpha_is_usable(kind, parts, indexes)
 end
 
 -- Shared implementation: parse three raw string values as RGB components,
--- combine with the already-parsed alpha, normalise, and return.
+-- combine with the already-parsed alpha, normalise, and return under the
+-- regular function-call format family (`rgba` / `argb`).
 local function build_color_tuple(r_raw, g_raw, b_raw, a, fmt)
 	local r = parse_tuple_rgb_component(r_raw)
 	local g = parse_tuple_rgb_component(g_raw)
@@ -564,18 +571,6 @@ local function build_color_tuple(r_raw, g_raw, b_raw, a, fmt)
 		return nil
 	end
 	return M.normalize({ r = r, g = g, b = b, a = a }), fmt
-end
-
--- Build an RGBA-ordered colour from a 4-element parts array where the
--- alpha occupies `parts[4]` and RGB occupies `parts[1..3]`.
-local function build_rgba_tuple(parts, a)
-	return build_color_tuple(parts[1], parts[2], parts[3], a, "rgba_tuple")
-end
-
--- Build an ARGB-ordered colour from a 4-element parts array where the
--- alpha occupies `parts[1]` and RGB occupies `parts[2..4]`.
-local function build_argb_tuple(parts, a)
-	return build_color_tuple(parts[2], parts[3], parts[4], a, "argb_tuple")
 end
 
 -- Attempt to parse a bare parenthesised 4-element numeric tuple as either
@@ -610,14 +605,37 @@ local function parse_tuple(args)
 
 	if last_wins then
 		if tuple_alpha_is_usable(last_alpha_kind, parts, { 1, 2, 3 }) then
-			return build_rgba_tuple(parts, last_alpha)
+			return build_color_tuple(parts[1], parts[2], parts[3], last_alpha, "rgba")
 		end
 	elseif first_wins then
 		if tuple_alpha_is_usable(first_alpha_kind, parts, { 2, 3, 4 }) then
-			return build_argb_tuple(parts, first_alpha)
+			return build_color_tuple(parts[2], parts[3], parts[4], first_alpha, "argb")
 		end
 	end
 	return nil
+end
+
+-- Generic language wrappers like `Color(...)` may carry RGB triplets without
+-- the literal `rgb` prefix. Keep this scoped to prefixed calls (not bare
+-- tuples) and require colour-like channels to avoid treating common coordinate
+-- triples as colours.
+local function parse_prefixed_tuple(args)
+	local parsed, fmt = parse_tuple(args)
+	if parsed then
+		return parsed, fmt
+	end
+
+	local parts = split_args(args)
+	if #parts ~= 3 or not tuple_rgb_looks_color_like(parts, { 1, 2, 3 }) then
+		return nil
+	end
+	local r = parse_tuple_rgb_component(parts[1])
+	local g = parse_tuple_rgb_component(parts[2])
+	local b = parse_tuple_rgb_component(parts[3])
+	if not (r and g and b) then
+		return nil
+	end
+	return M.normalize({ r = r, g = g, b = b, a = 1 }), "rgb"
 end
 
 local function parse_hsl(args, fmt)
@@ -655,12 +673,49 @@ local function parse_hsv(args)
 	return M.from_hsv(h, s, v, a), "hsv"
 end
 
+---Return the inner argument span for an arbitrary prefixed parenthesised
+---RGB/RGBA/ARGB tuple. Built-in colour functions (`rgba(...)`,
+---`argb(...)`, etc.) own their prefix as part of the format, but
+---language-specific wrappers like
+---`Color(...)` or `make_color(...)` should keep the wrapper and replace only
+---the numeric colour arguments.
+---@param value string
+---@param fmt? string
+---@return table? span 0-based `{ start_col, end_col }` relative to `value`.
+function M.replacement_span(value, fmt)
+	if fmt and fmt ~= "rgb" and fmt ~= "rgba" and fmt ~= "argb" then
+		return nil
+	end
+
+	local text = trim(value)
+	local name = text:match("^([%a_][%w_%.:]*)%s*%b()$")
+	if not (name and name:match("[%w_]$")) then
+		return nil
+	end
+	if named_paren_formats[name:lower()] then
+		return nil
+	end
+
+	local paren_start = text:find("%(")
+	if not paren_start then
+		return nil
+	end
+	return {
+		start_col = paren_start,
+		end_col = #text - 1,
+		mode = "args",
+		suffix_len = 1,
+	}
+end
+
 ---Parse a color from common authoring formats.
 ---
 ---Supported inputs include `#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`,
----`0xrrggbb`, `0xaarrggbb`, `rgb()`, `rgba()`, `argb()`, RGBA/ARGB
----numeric tuples like `(255, 255, 255, 0.8)` / `(0.3, 255, 255, 255)`,
----`hsl()`, `hsla()`, `hsv()` and common CSS color names.
+---`0xrrggbb`, `0xaarrggbb`, `rgb()`, `rgba()`, `argb()`, and
+---prefixed RGB tuples like `Color(255, 255, 255)`, and parenthesised
+---RGBA/ARGB numeric tuples like `(255, 255, 255, 0.8)` /
+---`(0.3, 255, 255, 255)` with or without an arbitrary identifier prefix,
+---plus `hsl()`, `hsla()`, `hsv()` and common CSS color names.
 ---@param value string
 ---@return DotconfigColor? color
 ---@return string? format Detected format (`hex`, `rgb`, `hsl`, etc.).
@@ -689,8 +744,8 @@ function M.parse(value)
 		end
 	end
 
-	local name, args = text:match("^([%a]+)%s*%((.*)%)$")
-	if name and args then
+	local name, args = text:match("^([%a_][%w_%.:]*)%s*%((.*)%)$")
+	if name and args and name:match("[%w_]$") then
 		if name == "rgb" or name == "rgba" then
 			color, fmt = parse_rgb(args, name)
 		elseif name == "argb" then
@@ -699,6 +754,8 @@ function M.parse(value)
 			color, fmt = parse_hsl(args, name)
 		elseif name == "hsv" or name == "hsb" then
 			color, fmt = parse_hsv(args)
+		else
+			color, fmt = parse_prefixed_tuple(args)
 		end
 		if color then
 			return color, fmt
@@ -714,6 +771,35 @@ end
 
 local function alpha_string(value)
 	return ("%.2f"):format(round(value, 2)):gsub("0+$", ""):gsub("%.$", "")
+end
+
+---Format just the comma-separated argument list for parenthesised formats.
+---@param c DotconfigColor
+---@param fmt string
+---@return string
+function M.format_args(c, fmt)
+	c = M.normalize(c)
+	fmt = fmt or "rgba"
+
+	if fmt == "rgb" then
+		return ("%d, %d, %d"):format(c.r, c.g, c.b)
+	elseif fmt == "argb" then
+		return ("%s, %d, %d, %d"):format(alpha_string(c.a), c.r, c.g, c.b)
+	elseif fmt == "hsl" or fmt == "hsla" then
+		local hsl = M.to_hsl(c)
+		if fmt == "hsla" then
+			return ("%d, %s, %s, %s"):format(round(hsl.h), percent(hsl.s), percent(hsl.l), alpha_string(c.a))
+		end
+		return ("%d, %s, %s"):format(round(hsl.h), percent(hsl.s), percent(hsl.l))
+	elseif fmt == "hsv" then
+		local hsv = M.to_hsv(c)
+		return ("%d, %s, %s"):format(round(hsv.h), percent(hsv.s), percent(hsv.v))
+	end
+
+	if fmt == "rgba" then
+		return ("%d, %d, %d, %s"):format(c.r, c.g, c.b, alpha_string(c.a))
+	end
+	return M.format(c, fmt)
 end
 
 ---Format a color for insertion/copying.
@@ -738,10 +824,6 @@ function M.format(c, fmt)
 		return ("rgba(%d, %d, %d, %s)"):format(c.r, c.g, c.b, alpha_string(c.a))
 	elseif fmt == "argb" then
 		return ("argb(%s, %d, %d, %d)"):format(alpha_string(c.a), c.r, c.g, c.b)
-	elseif fmt == "rgba_tuple" then
-		return ("(%d, %d, %d, %s)"):format(c.r, c.g, c.b, alpha_string(c.a))
-	elseif fmt == "argb_tuple" then
-		return ("(%s, %d, %d, %d)"):format(alpha_string(c.a), c.r, c.g, c.b)
 	elseif fmt == "hsl" or fmt == "hsla" then
 		local hsl = M.to_hsl(c)
 		if fmt == "hsla" then
@@ -870,13 +952,22 @@ local function add_match(matches, line, start_idx, end_idx)
 	local text = line:sub(start_idx, end_idx)
 	local color, fmt = M.parse(text)
 	if color then
-		matches[#matches + 1] = {
+		local match = {
 			start_col = candidate.start_col,
 			end_col = candidate.end_col,
 			text = text,
 			color = color,
 			format = fmt,
 		}
+		local span = M.replacement_span(text, fmt)
+		if span then
+			match.replace_start_col = candidate.start_col + span.start_col
+			match.replace_end_col = candidate.start_col + span.end_col
+			match.replace_mode = span.mode
+			match.replace_text = line:sub(match.replace_start_col + 1, match.replace_end_col)
+			match.replace_suffix_len = span.suffix_len or 0
+		end
+		matches[#matches + 1] = match
 	end
 end
 
@@ -913,7 +1004,7 @@ function M.find_all(line)
 
 	start = 1
 	while true do
-		local s, e = line:find("[%a]+%s*%b()", start)
+		local s, e = line:find("%f[%a_][%a_][%w_%.:]*%s*%b()", start)
 		if not s then
 			break
 		end
@@ -921,9 +1012,10 @@ function M.find_all(line)
 		start = e + 1
 	end
 
-	-- Scan for bare parenthesised tuples `(...)` that are not preceded by an
-	-- identifier (those are captured by the function-call pass above). We walk
-	-- one `(` at a time; `%b()` ensures we only match balanced pairs. For
+	-- Scan for bare parenthesised tuples `(...)`. Function-style values with
+	-- known or arbitrary identifier prefixes are captured by the pass above, so
+	-- overlap checks prevent this pass from returning only their inner args. We
+	-- walk one `(` at a time; `%b()` ensures we only match balanced pairs. For
 	-- typical source lines this is O(n); pathological lines with many unmatched
 	-- `(` characters could be quadratic, but that is not a realistic concern
 	-- for colour literal scanning.

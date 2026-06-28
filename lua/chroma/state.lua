@@ -63,14 +63,24 @@ local function locate_visual_target()
 	local text = line:sub(col1 + 1, col2)
 	local parsed, fmt = color.parse(text)
 	if parsed then
+		local start_col, end_col, original_text = col1, col2, text
+		local span = color.replacement_span(text, fmt)
+		if span then
+			local leading = #(text:match("^%s*") or "")
+			start_col = col1 + leading + span.start_col
+			end_col = col1 + leading + span.end_col
+			original_text = line:sub(start_col + 1, end_col)
+		end
 		return {
 			buf = vim.api.nvim_get_current_buf(),
 			row = row1,
-			start_col = col1,
-			end_col = col2,
-			original_text = text,
+			start_col = start_col,
+			end_col = end_col,
+			original_text = original_text,
 			color = parsed,
 			format = fmt,
+			replace_mode = span and span.mode or nil,
+			replace_suffix_len = span and span.suffix_len or 0,
 		}
 	end
 	return nil
@@ -90,11 +100,13 @@ local function locate_cursor_target()
 	return {
 		buf = buf,
 		row = row,
-		start_col = match.start_col,
-		end_col = match.end_col,
-		original_text = match.text,
+		start_col = match.replace_start_col or match.start_col,
+		end_col = match.replace_end_col or match.end_col,
+		original_text = match.replace_text or match.text,
 		color = match.color,
 		format = match.format,
+		replace_mode = match.replace_mode,
+		replace_suffix_len = match.replace_suffix_len or 0,
 	}
 end
 
@@ -245,6 +257,16 @@ end
 ---@return string
 function State:current_text(fmt)
 	return color.format(self.color, fmt or self.format)
+end
+
+---Format the text that should be written back to the source target.
+---@param fmt? string
+---@return string
+function State:replacement_text(fmt)
+	if self.target and self.target.replace_mode == "args" then
+		return color.format_args(self.color, fmt or self.format)
+	end
+	return self:current_text(fmt)
 end
 
 ---Re-derive the hue from the current RGB color when it carries chroma.
@@ -442,7 +464,7 @@ function State:sync_editor_preview()
 	local target = self.target
 	if target and vim.api.nvim_buf_is_valid(target.buf) then
 		vim.api.nvim_buf_clear_namespace(target.buf, preview_ns, 0, -1)
-		local text = self:current_text()
+		local text = self:replacement_text()
 		if self.live_preview and vim.bo[target.buf].modifiable then
 			pcall(
 				vim.api.nvim_buf_set_text,
@@ -455,7 +477,8 @@ function State:sync_editor_preview()
 			)
 			target.end_col = target.start_col + #text
 		end
-		pcall(vim.api.nvim_buf_set_extmark, target.buf, preview_ns, target.row, target.end_col, {
+		local extmark_col = target.end_col + (target.replace_suffix_len or 0)
+		pcall(vim.api.nvim_buf_set_extmark, target.buf, preview_ns, target.row, extmark_col, {
 			virt_text = {
 				{
 					"  " .. color.to_hex(self.color, self.color.a < 1) .. "  ",
@@ -513,7 +536,7 @@ end
 
 ---Confirm the current color: write to buffer, save to recents, close window.
 function State:confirm()
-	local text = self:current_text()
+	local text = self:replacement_text()
 	self.closed = true
 	if self.target and vim.api.nvim_buf_is_valid(self.target.buf) and vim.bo[self.target.buf].modifiable then
 		pcall(
