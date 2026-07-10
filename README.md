@@ -1,6 +1,6 @@
 # chroma.nvim
 
-A self-contained, high-performance interactive color picker for Neovim 0.10+ extracted from Max's dotfiles.
+A self-contained, high-performance interactive color picker for Neovim 0.10+
 
 Chroma provides a feature-rich, standalone floating UI to edit and preview color literals in your code in real-time, with **zero runtime plugin dependencies**.
 
